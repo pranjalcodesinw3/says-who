@@ -38,12 +38,37 @@ export function contentTokens(text: string, ownerNames: string[] = []): string[]
   const owner = new Set(ownerNames.flatMap((n) => words(n)).map(stem));
   const out = new Set<string>();
   for (const raw of words(text)) {
-    if (STOP.has(raw.toLowerCase())) continue;
+    if (STOP.has(raw.toLowerCase()) || isNegator(raw)) continue;
     const s = stem(raw);
     if (s.length < 3 || STOP.has(s) || owner.has(s)) continue;
     out.add(s);
   }
   return [...out];
+}
+
+const NEGATORS = new Set(["not", "no", "never", "cant", "cannot", "wont", "doesnt", "dont", "isnt", "arent", "didnt", "wasnt", "hasnt", "havent", "nor"]);
+const letters = (w: string) => w.toLowerCase().replace(/[^a-z]/g, "");
+export const isNegator = (w: string) => NEGATORS.has(letters(w));
+
+// Polarity of a piece of text: every negator flips it once, and "dislike" (hate, detest) is "like" flipped.
+export function isNegative(text: string): boolean {
+  let flips = 0;
+  for (const w of words(text)) if (isNegator(w) || stem(w) === "dislike") flips++;
+  return flips % 2 === 1;
+}
+
+// The clause (split on punctuation and "but") that carries most of the needed tokens; polarity is judged on that clause only,
+// so an unrelated "I don't know" elsewhere in the utterance does not flip it.
+function bestClause(text: string, need: string[]): string {
+  const clauses = text.split(/[,.;:!?]|\bbut\b|\bthough\b/i);
+  let best = text;
+  let most = -1;
+  for (const c of clauses) {
+    const have = new Set(words(c).map(stem));
+    const n = need.filter((t) => have.has(t)).length;
+    if (n > most) { most = n; best = c; }
+  }
+  return best;
 }
 
 export type Support = { score: number; index: number; matched: string[] };
@@ -55,6 +80,7 @@ export const SUPPORT_RATIO = 0.6;
 export function findSupport(factText: string, utterances: Utterance[], ownerNames: string[] = []): Support | null {
   const need = contentTokens(factText, ownerNames);
   if (need.length === 0) return null;
+  const factNegative = isNegative(factText);
   const sets = utterances.map((u) => new Set(words(u.text).map(stem)));
   let best: Support | null = null;
   for (let i = 0; i < utterances.length; i++) {
@@ -65,6 +91,9 @@ export function findSupport(factText: string, utterances: Utterance[], ownerName
       const minHits = need.length === 1 ? 1 : 2;
       if (hit.length < minHits || ratio < SUPPORT_RATIO) continue;
       if (need.length === 1 && need[0]!.length < 5) continue;
+      // "Does not like oat milk" is not supported by "I switched to oat milk", and "Likes jazz" is not supported by "I can't stand jazz".
+      const window = Array.from({ length: span }, (_, k) => utterances[i + k]!.text).join(" ");
+      if (isNegative(bestClause(window, hit)) !== factNegative) continue;
       // inside the window, speaker/quote come from the utterance carrying most of the hits
       let at = i;
       let most = -1;

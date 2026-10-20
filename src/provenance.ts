@@ -1,9 +1,10 @@
 import type { Bee, Conversation, Fact } from "./bee.ts";
 import { toMs } from "./bee.ts";
 import { contentTokens, findSupport, quoteOf, type Support } from "./match.ts";
+import { relate } from "./relate.ts";
 import { TV_THRESHOLD, tvLikelihood, type TvContext } from "./tv.ts";
 
-export type Verdict = "supported" | "unsupported" | "likely-tv";
+export type Verdict = "supported" | "unsupported" | "likely-tv" | "duplicate" | "contradicts";
 
 export type Receipt = {
   factId: number;
@@ -18,6 +19,8 @@ export type Receipt = {
   conversationId: number | null;
   reasons: string[];
   searched: number;
+  relatedFactId: number | null;
+  relatedFactText: string | null;
 };
 
 export type Ctx = { ownerNames: string[]; tv: TvContext };
@@ -40,7 +43,7 @@ export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Rec
     const reason = contentTokens(fact.text, ctx.ownerNames).length === 0
       ? "fact has no checkable content words"
       : `no utterance in ${conversations.length} candidate conversation(s) says this`;
-    return { ...base, verdict: "unsupported", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason] };
+    return { ...base, verdict: "unsupported", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
   }
   const u = pick.conv.utterances[pick.support.index]!;
   return {
@@ -53,6 +56,8 @@ export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Rec
     spokenAt: toMs(u.spoken_at) ?? toMs(pick.conv.start_time),
     conversationId: pick.conv.id,
     reasons: pick.tv.reasons,
+    relatedFactId: null,
+    relatedFactText: null,
   };
 }
 
@@ -67,7 +72,7 @@ async function fetchAll(bee: Bee, ids: number[], seen: Map<number, Conversation>
 
 // Candidate conversations: BM25 over conversations in [created-48h, created+10min], then the most recent conversations.
 // Neural search is slow by design, so it only runs when the cheap candidates produce no supported receipt.
-export async function receiptFor(bee: Bee, fact: Fact, ctx: Ctx): Promise<Receipt> {
+export async function receiptFor(bee: Bee, fact: Fact, ctx: Ctx, peers: Fact[] = []): Promise<Receipt> {
   const created = toMs(fact.created_at) ?? Date.now();
   const window = { since: created - 48 * HOUR, until: created + 10 * 60_000 };
   const query = contentTokens(fact.text, ctx.ownerNames).join(" ") || fact.text;
@@ -80,5 +85,16 @@ export async function receiptFor(bee: Bee, fact: Fact, ctx: Ctx): Promise<Receip
     await fetchAll(bee, await bee.searchConversationIds({ query: fact.text, neural: true, limit: 5, ...window }), seen, 4);
     receipt = assess(fact, [...seen.values()], ctx);
   }
-  return receipt;
+  return withRelation(receipt, fact, peers, ctx);
+}
+
+// A relation to another stored fact outranks the evidence verdict: a duplicate is clutter and a contradiction needs the wearer,
+// even when each of them has a real receipt. The evidence fields stay on the receipt.
+export function withRelation(receipt: Receipt, fact: Fact, peers: Fact[], ctx: Ctx): Receipt {
+  const rel = relate(fact, peers, ctx.ownerNames);
+  if (!rel) return receipt;
+  const why = rel.kind === "duplicate"
+    ? `same claim as older fact ${rel.other.id} "${rel.other.text}"`
+    : `opposes confirmed fact ${rel.other.id} "${rel.other.text}"`;
+  return { ...receipt, verdict: rel.kind, relatedFactId: rel.other.id, relatedFactText: rel.other.text, reasons: [why, ...receipt.reasons] };
 }

@@ -38,6 +38,9 @@ mutate "no TV signal at all" src/tv.ts 's/return \{ score: Math\.min\(1, Number\
 mutate "cursor saved even when the batch failed" src/watch.ts 's/const cursorSaved = failed === 0 && next !== null;/const cursorSaved = next !== null;/'
 mutate "cursor never passed to bee changed" src/bee.ts 's/api\.changed\(cursor \? \{ cursor \} : undefined\)/api.changed(undefined)/'
 mutate "search not scoped to conversations" src/bee.ts 's/filter: "conversations" \}/filter: "all" }/'
+mutate "no duplicate/contradiction detection" src/relate.ts 's/(export function relate\([^\n]*\{\n)/$1  return null;\n/'
+mutate "contradiction ignores polarity" src/relate.ts 's/theirs\.negative !== mine\.negative && j >= CONTRADICT_JACCARD/j >= CONTRADICT_JACCARD/'
+mutate "evidence ignores polarity" src/match.ts 's/if \(isNegative\(bestClause\(window, hit\)\) !== factNegative\) continue;//'
 mutate "zero-facts gate removed from live-check" scripts/live-check.ts 's/if \(facts\.length === 0\) die\(3/if (false) die(3/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

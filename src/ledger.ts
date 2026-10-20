@@ -27,10 +27,15 @@ export function openLedger(path: string) {
       fact_id INTEGER PRIMARY KEY, fact_text TEXT NOT NULL, fact_created_at INTEGER,
       verdict TEXT NOT NULL, tv_score REAL NOT NULL, support_score REAL NOT NULL,
       quote TEXT, speaker TEXT, spoken_at INTEGER, conversation_id INTEGER, reasons TEXT NOT NULL, searched INTEGER NOT NULL,
-      todo_id INTEGER, decision TEXT, decided_at INTEGER, verified_gone INTEGER, created_at INTEGER NOT NULL
+      todo_id INTEGER, decision TEXT, decided_at INTEGER, verified_gone INTEGER, created_at INTEGER NOT NULL,
+      related_fact_id INTEGER, related_fact_text TEXT
     );
     CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   `);
+  // ledgers written before duplicate/contradicts existed lack the relation columns
+  const have = new Set(db.prepare("PRAGMA table_info(receipts)").all().map((c) => String(c.name)));
+  if (!have.has("related_fact_id")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_id INTEGER");
+  if (!have.has("related_fact_text")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_text TEXT");
 
   const toRow = (r: Record<string, unknown>): Row => ({
     factId: Number(r.fact_id), factText: String(r.fact_text),
@@ -40,6 +45,8 @@ export function openLedger(path: string) {
     spokenAt: r.spoken_at === null ? null : Number(r.spoken_at),
     conversationId: r.conversation_id === null ? null : Number(r.conversation_id),
     reasons: JSON.parse(String(r.reasons)) as string[], searched: Number(r.searched),
+    relatedFactId: r.related_fact_id === null || r.related_fact_id === undefined ? null : Number(r.related_fact_id),
+    relatedFactText: (r.related_fact_text as string | null | undefined) ?? null,
     todoId: r.todo_id === null ? null : Number(r.todo_id),
     decision: (r.decision as Decision | null) ?? null,
     decidedAt: r.decided_at === null ? null : Number(r.decided_at),
@@ -60,9 +67,9 @@ export function openLedger(path: string) {
     insert(r: Receipt): boolean {
       const res = db.prepare(
         `INSERT OR IGNORE INTO receipts (fact_id, fact_text, fact_created_at, verdict, tv_score, support_score, quote, speaker,
-          spoken_at, conversation_id, reasons, searched, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       ).run(r.factId, r.factText, r.factCreatedAt, r.verdict, r.tvScore, r.supportScore, r.quote, r.speaker, r.spokenAt,
-        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now());
+        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText);
       return Number(res.changes) === 1;
     },
     setTodo(factId: number, todoId: number) {

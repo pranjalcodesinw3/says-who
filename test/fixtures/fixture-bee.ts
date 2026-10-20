@@ -109,3 +109,9 @@ export function fakeBee(seed: { facts: Fact[]; conversations: Conversation[] }):
   };
   return bee;
 }
+
+// FIXTURE facts for relations. Ids matter: a duplicate is the NEWER id, a contradiction needs a CONFIRMED peer.
+export const FACT_OAT_DUP: Fact = { id: 5, text: "Likes oat milk", tags: [], created_at: NOW, confirmed: false };
+export const FACT_OAT_CONFIRMED_NEG: Fact = { id: 6, text: "Does not like oat milk", tags: [], created_at: NOW, confirmed: true };
+export const FACT_ALMOND: Fact = { id: 7, text: "Likes almond milk", tags: [], created_at: NOW, confirmed: false };
+export const FACT_NO_CAR_CONFIRMED: Fact = { id: 8, text: "Does not drive a car", tags: [], created_at: NOW, confirmed: true };

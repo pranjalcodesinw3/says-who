@@ -9,6 +9,8 @@ const STAMP: Record<Verdict, { label: string; cls: string }> = {
   supported: { label: "Receipt found", cls: "ok" },
   "likely-tv": { label: "Likely TV", cls: "warn" },
   unsupported: { label: "No receipt", cls: "bad" },
+  duplicate: { label: "Duplicate", cls: "warn" },
+  contradicts: { label: "Conflict", cls: "bad" },
 };
 
 function status(r: Row): string {
@@ -28,6 +30,9 @@ function slip(r: Row): string {
         <button class="btn ${r.verdict === "supported" ? "ghost" : "primary"}" data-act="forget" data-id="${r.factId}">Forget fact</button>
       </div>`
     : "";
+  const related = r.relatedFactId !== null
+    ? `<p class="rel">${r.verdict === "duplicate" ? "Same claim as" : "Opposes confirmed"} fact ${r.relatedFactId}: &ldquo;${esc(r.relatedFactText ?? "")}&rdquo;</p>`
+    : "";
   const evidence = r.quote
     ? `<dl class="ev">
         <dt>Heard</dt><dd class="quote">&ldquo;${esc(r.quote)}&rdquo;</dd>
@@ -42,6 +47,7 @@ function slip(r: Row): string {
     <h2>${esc(r.factText)}</h2>
     <div class="stamp ${stamp.cls}" aria-label="Verdict: ${stamp.label}">${stamp.label}</div>
     <hr>
+    ${related}
     ${evidence}
     <div class="tv"><span>TV-likelihood</span><meter min="0" max="1" low="0.3" high="0.5" optimum="0" value="${r.tvScore}"></meter><span class="num">${r.tvScore.toFixed(2)}</span></div>
     ${reasons}
@@ -71,10 +77,10 @@ body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mon
 main{max-width:560px;margin:0 auto}
 h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
-.tape{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--desk-2);border-radius:2px;margin:0 0 24px;border:1px solid #3a3731}
-.tape div{padding:12px;border-right:1px solid #3a3731}.tape div:last-child{border-right:0}
+.tape{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
+.tape div{padding:12px;background:var(--desk-2);min-width:0}
 .tape b{display:block;font:600 20px/1.2 var(--font-mono);font-variant-numeric:tabular-nums}
-.tape span{color:var(--chalk-soft);font-size:12px}
+.tape span{display:block;color:var(--chalk-soft);font-size:12px;overflow-wrap:anywhere}
 .slip{position:relative;background:var(--paper);color:var(--ink);padding:16px 16px 24px;margin:0 0 24px;border-radius:2px;
  -webkit-mask:radial-gradient(circle 6px at 8px 100%,#0000 98%,#000) bottom/16px 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat;
  mask:radial-gradient(circle 6px at 8px 100%,#0000 98%,#000) bottom/16px 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat}
@@ -88,6 +94,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .ev dd{margin:0;overflow-wrap:anywhere}
 .quote{font-weight:500}
 .none{margin:0;color:var(--ink-soft)}
+.rel{margin:0 0 12px;font-weight:500}
 .tv{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:12px;align-items:center;margin:12px 0 0;font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em}
 .tv meter{width:100%;height:8px}
 .num{font-variant-numeric:tabular-nums;color:var(--ink)}
@@ -102,7 +109,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
-@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.tape div:nth-child(2){border-right:0}.tape div:nth-child(-n+2){border-bottom:1px solid #3a3731}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
+@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
 </style></head>
 <body><main>
 <h1>Receipts</h1>
@@ -112,6 +119,7 @@ code{color:var(--chalk)}
 <div><b>${n("supported")}</b><span>receipt found</span></div>
 <div><b>${n("likely-tv")}</b><span>likely TV</span></div>
 <div><b>${n("unsupported")}</b><span>no receipt</span></div>
+<div><b>${n("duplicate") + n("contradicts")}</b><span>duplicate or conflict</span></div>
 </section>
 ${body}
 </main>

@@ -9,6 +9,8 @@ export type Deps = {
   log: (line: string) => void;
   now?: () => number;
   alarmLeadMs?: number;
+  // Every stored fact, confirmed and pending, for duplicate/contradiction checks. Defaults to reading Bee.
+  peers?: () => Promise<Fact[]>;
 };
 
 // The fact id rides in the to-do text because a Bee to-do has no tags or metadata field (resources/todos/index.ts:49-55).
@@ -22,7 +24,11 @@ export function todoText(r: Receipt): string {
   const why =
     r.verdict === "likely-tv"
       ? `Heard${when ? ` ${when}` : ""}, TV-like${r.quote ? `: "${clip(r.quote, 60)}"` : ""}`
-      : "No receipt found";
+      : r.verdict === "duplicate"
+        ? `Bee already has this as fact ${r.relatedFactId}`
+        : r.verdict === "contradicts"
+          ? `You confirmed the opposite: "${clip(r.relatedFactText ?? "", 60)}"`
+          : "No receipt found";
   return `Bee thinks "${clip(r.factText, 80)}". ${why}. Tick = forget ${labelFor(r.factId)}`;
 }
 
@@ -47,7 +53,8 @@ async function ensureTodo(d: Deps, row: Row): Promise<void> {
 export async function ensureReceipt(d: Deps, fact: Fact): Promise<Row> {
   let row = d.ledger.get(fact.id);
   if (!row) {
-    d.ledger.insert(await receiptFor(d.bee, fact, d.ctx));
+    const peers = await (d.peers ?? (async () => [...(await d.bee.listFacts({})), ...(await d.bee.listFacts({ unconfirmed: true }))]))();
+    d.ledger.insert(await receiptFor(d.bee, fact, d.ctx, peers));
     row = d.ledger.get(fact.id)!;
     d.log(`fact ${fact.id} "${clip(fact.text, 60)}" -> ${row.verdict}${row.quote ? ` ("${clip(row.quote, 50)}")` : ""}`);
   }
@@ -114,7 +121,11 @@ export async function reconcile(d: Deps): Promise<number> {
 
 export type TickResult = { facts: number; decided: number; failed: number; cursorSaved: boolean };
 
-export async function tick(d: Deps): Promise<TickResult> {
+export async function tick(d0: Deps): Promise<TickResult> {
+  // one read of the stored facts per tick, shared by every new fact in the batch
+  let cached: Promise<Fact[]> | null = null;
+  const base = d0.peers ?? (async () => [...(await d0.bee.listFacts({})), ...(await d0.bee.listFacts({ unconfirmed: true }))]);
+  const d: Deps = { ...d0, peers: () => (cached ??= base()) };
   let facts: Fact[];
   let next: string | null = null;
   try {
