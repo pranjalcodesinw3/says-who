@@ -32,7 +32,7 @@ test("review page lists every fact with its receipt, and the buttons write throu
     for (const needle of ["Prefers oat milk", "Dave is a criminal lawyer", "I hold a commercial pilot licence", "I switched to oat milk this week", "Likely TV", "No receipt", "Receipt found", "facts checked"]) {
       assert.ok(page.body.includes(needle), `page is missing "${needle}"`);
     }
-    assert.ok(!/ — /.test(page.body), "no em dashes in page copy");
+    assert.ok(!page.body.includes("\u2014"), "no em dashes in page copy");
     assert.equal((JSON.parse((await http(port, "GET", "/api/receipts")).body) as unknown[]).length, 3);
 
     assert.equal((await http(port, "POST", "/api/facts/2/forget")).status, 403, "write without the header is refused");

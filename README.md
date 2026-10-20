@@ -26,10 +26,10 @@ Every receipt is stored in a local SQLite ledger (fact id, verdict, 25-word quot
 ```bash
 npm install
 npx bee login --no-wait          # approve the link in the Bee app, then: npx bee me
-npm run receipts -- doctor       # account, confirmed and pending fact counts
-npm run receipts -- watch --serve   # loop + review page on http://127.0.0.1:8790
-npm run receipts -- why "criminal lawyer"   # receipt for one stored fact
-npm run receipts -- report       # provenance counts and the wearer's decisions
+npm run doctor                   # account, confirmed and pending fact counts
+npm run watch                    # loop + review page on http://127.0.0.1:8790
+npm run why "criminal lawyer"    # receipt for one stored fact
+npm run report                   # provenance counts and the wearer's decisions
 ```
 
 Environment: `RECEIPTS_DB` (default `.receipts/ledger.db`), `RECEIPTS_PORT` (8790), `RECEIPTS_INTERVAL_S` (60), `RECEIPTS_WEARER_SPEAKERS` (speaker labels that mean the wearer, default `unknown,you,me,user,owner,wearer`), `RECEIPTS_SHOW_NAMES` (extra show cues, comma separated), `BEE_BIN` (path to a different `bee`).

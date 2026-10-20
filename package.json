@@ -15,7 +15,12 @@
     "typecheck": "tsc --noEmit",
     "mutation": "bash scripts/mutation-check.sh",
     "live-check": "bash scripts/live-check.sh",
-    "receipts": "node --disable-warning=ExperimentalWarning src/cli.ts"
+    "doctor": "node --disable-warning=ExperimentalWarning src/cli.ts doctor",
+    "once": "node --disable-warning=ExperimentalWarning src/cli.ts once",
+    "watch": "node --disable-warning=ExperimentalWarning src/cli.ts watch --serve",
+    "review": "node --disable-warning=ExperimentalWarning src/cli.ts review",
+    "report": "node --disable-warning=ExperimentalWarning src/cli.ts report",
+    "why": "node --disable-warning=ExperimentalWarning src/cli.ts why"
   },
   "dependencies": {
     "@beeai/cli": "^0.8.0"
