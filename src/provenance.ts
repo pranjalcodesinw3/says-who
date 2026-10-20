@@ -5,7 +5,8 @@ import type { Judge } from "./judge.ts";
 import { relate } from "./relate.ts";
 import { TV_THRESHOLD, tvLikelihood, type TvContext } from "./tv.ts";
 
-export type Verdict = "supported" | "unsupported" | "likely-tv" | "duplicate" | "contradicts";
+export const VERDICTS = ["supported", "likely-tv", "unsupported", "duplicate", "contradicts"] as const;
+export type Verdict = (typeof VERDICTS)[number];
 
 export type Receipt = {
   factId: number;

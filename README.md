@@ -14,7 +14,7 @@ fact 2 "Dave is a criminal lawyer" -> likely-tv
 
 1. `receipts watch` reads the `bee changed` cursor every 60 seconds and saves the cursor only after the batch is processed.
 2. Each new fact is searched against conversations: BM25 first, the most recent conversations next, neural search only when those find nothing. Candidates are re-read through `conversations get` and matched on **utterances**. Bee's AI-written summaries are never evidence and never quoted.
-3. The verdict is one of `supported`, `likely-tv` or `unsupported`. The TV score combines who spoke the line, how many other voices were present, scripted cadence, show and podcast cues, and whether the quote is the wearer talking about themselves.
+3. The verdict is one of `supported`, `likely-tv`, `unsupported`, `duplicate` (the same claim as an older stored fact) or `contradicts` (opposes a fact the wearer confirmed). Negation is read per clause, so "does not like oat milk" is never supported by "I switched to oat milk". The TV score combines who spoke the line, how many other voices were present, scripted cadence, show and podcast cues, and whether the quote is the wearer talking about themselves.
 4. `likely-tv` and `unsupported` facts become a Bee reminder with `alarm_at` set to now. The fact id rides in the reminder text as `[rcpt:<id>]`.
 5. A stream wake-up on the reminder-updated event, plus a poll, finds the ticked reminder. Receipts runs `facts delete`, then `facts get` and only records the decision when Bee answers not found.
 6. Facts the wearer already confirmed get a receipt and no reminder. Supported facts are confirmed from the review page, with a read-back on `confirmed`.
@@ -33,6 +33,10 @@ npm run report                   # provenance counts and the wearer's decisions
 ```
 
 Environment: `RECEIPTS_DB` (default `.receipts/ledger.db`), `RECEIPTS_PORT` (8790), `RECEIPTS_INTERVAL_S` (60), `RECEIPTS_WEARER_SPEAKERS` (speaker labels that mean the wearer, default `unknown,you,me,user,owner,wearer`), `RECEIPTS_SHOW_NAMES` (extra show cues, comma separated), `BEE_BIN` (path to a different `bee`).
+
+## Agent Skill
+
+`skills/receipts/SKILL.md` (bundled as `skills/receipts.skill`, the same single-entry zip format as `bee-computer/bee-skill`) teaches Claude Code or any skills-capable agent to answer "why does Bee think I'm a lawyer?" with the receipt: verbatim quote, speaker, time, TV score, verdict. It also carries the same check as plain bee-cli commands for machines without this repo. A test ties the skill to the code: every command, verdict and receipt field it names must exist.
 
 ## Bee surfaces called
 

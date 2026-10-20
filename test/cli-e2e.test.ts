@@ -53,6 +53,16 @@ test("once -> wrist reminders -> tick -> forget, across the real client and a su
   assert.equal(three.status, 0, three.stdout + three.stderr);
   assert.deepEqual(read().facts.map((f) => f.id).sort(), [1, 3], "ticked reminder forgot fact 2 and only fact 2");
 
+  const why = run("why", "criminal", "lawyer");
+  assert.equal(why.status, 1, "fact 2 is gone, so nothing matches and why says so instead of guessing");
+  assert.match(why.stderr, /No stored fact shares content words/);
+  const why2 = run("why", "oat", "milk");
+  assert.equal(why2.status, 0, why2.stdout + why2.stderr);
+  const receipt = JSON.parse(why2.stdout) as { verdict: string; quote: string; speaker: string; factId: number };
+  assert.equal(receipt.factId, 1);
+  assert.equal(receipt.verdict, "supported");
+  assert.match(receipt.quote, /oat milk/);
+
   const rep = run("report");
   assert.match(rep.stdout, /3 facts checked/);
   assert.match(rep.stdout, /forgot 1/);
