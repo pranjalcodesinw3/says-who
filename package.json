@@ -1,0 +1,27 @@
+{
+  "name": "receipts",
+  "version": "0.1.0",
+  "description": "Live provenance for Bee facts: a verbatim receipt for every fact, doubtful ones sent to the wrist as a to-do, tick to forget.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "receipts": "./src/cli.ts"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "mutation": "bash scripts/mutation-check.sh",
+    "live-check": "bash scripts/live-check.sh",
+    "receipts": "node --disable-warning=ExperimentalWarning src/cli.ts"
+  },
+  "dependencies": {
+    "@beeai/cli": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
