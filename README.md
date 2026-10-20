@@ -46,7 +46,8 @@ Environment: `RECEIPTS_DB` (default `.receipts/ledger.db`), `RECEIPTS_PORT` (879
 
 - `npm test` runs the suite on labeled fixtures whose payload shapes are copied from the bee-cli source, including the real client calling the bundled `bee` binary and a full `receipts once` pass through a spawned `bee` process.
 - Must-fail cases: a planted fact no utterance supports comes back `unsupported` even when search returns every conversation; an unticked reminder produces no delete.
-- `npm run mutation` breaks the guarded code seven ways (matcher always hits, forget without a tick, TV signal removed, cursor saved after a failure, cursor never passed, search scope widened, zero-facts gate removed), requires red each time, restores, and requires green.
+- `npm run mutation` breaks the guarded code fourteen ways (matcher always hits, forget without a tick, TV signal removed, cursor handling, search scope, relation detectors, polarity, the judge's verdict, the zero-facts gate and more), requires red each time, restores, and requires green.
+- `npm run viewport-check` frames the review page at 320 and 390 px in a browser tab and fails on horizontal scroll, clipped text, a stamp over heading text, small tap targets or broken-mid-word labels. A control run with deliberately broken CSS must fail or the check itself fails.
 - `npm run live-check` runs the three device spikes against the logged-in account and prints measured numbers. It exits 2 when logged out and 3 when the account has no facts.
 
 MIT licensed.

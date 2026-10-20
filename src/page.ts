@@ -109,7 +109,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
-@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
+@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.tape div:last-child:nth-child(odd){grid-column:1/-1}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
 </style></head>
 <body><main>
 <h1>Receipts</h1>
