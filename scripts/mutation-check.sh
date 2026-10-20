@@ -41,6 +41,8 @@ mutate "search not scoped to conversations" src/bee.ts 's/filter: "conversations
 mutate "no duplicate/contradiction detection" src/relate.ts 's/(export function relate\([^\n]*\{\n)/$1  return null;\n/'
 mutate "contradiction ignores polarity" src/relate.ts 's/theirs\.negative !== mine\.negative && j >= CONTRADICT_JACCARD/j >= CONTRADICT_JACCARD/'
 mutate "evidence ignores polarity" src/match.ts 's/if \(isNegative\(bestClause\(window, hit\)\) !== factNegative\) continue;//'
+mutate "judge verdict ignored on near-miss" src/provenance.ts 's/if \(receipt\.verdict === "unsupported" && d\.supports\)/if (receipt.verdict === "unsupported")/'
+mutate "strong support also asks the judge" src/provenance.ts 's/const WEAK_SUPPORT = 0\.8;/const WEAK_SUPPORT = 1.1;/'
 mutate "zero-facts gate removed from live-check" scripts/live-check.ts 's/if \(facts\.length === 0\) die\(3/if (false) die(3/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

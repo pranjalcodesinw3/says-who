@@ -74,10 +74,11 @@ function bestClause(text: string, need: string[]): string {
 export type Support = { score: number; index: number; matched: string[] };
 
 export const SUPPORT_RATIO = 0.6;
+export const NEAR_MISS_RATIO = 0.33;
 
 // Best window (one utterance, or two adjacent) covering the fact's content tokens.
 // Supported needs >= 60% of tokens and at least 2 distinct tokens (a single-token fact needs a token of 5+ letters).
-export function findSupport(factText: string, utterances: Utterance[], ownerNames: string[] = []): Support | null {
+export function findSupport(factText: string, utterances: Utterance[], ownerNames: string[] = [], loose = false): Support | null {
   const need = contentTokens(factText, ownerNames);
   if (need.length === 0) return null;
   const factNegative = isNegative(factText);
@@ -88,8 +89,10 @@ export function findSupport(factText: string, utterances: Utterance[], ownerName
       if (i + span > utterances.length) continue;
       const hit = need.filter((t) => Array.from({ length: span }, (_, k) => sets[i + k]!).some((s) => s.has(t)));
       const ratio = hit.length / need.length;
-      const minHits = need.length === 1 ? 1 : 2;
-      if (hit.length < minHits || ratio < SUPPORT_RATIO) continue;
+      const minHits = loose || need.length === 1 ? 1 : 2;
+      if (hit.length < minHits || ratio < (loose ? NEAR_MISS_RATIO : SUPPORT_RATIO)) continue;
+      // loose mode feeds the optional judge: a lone "like" is not a hit worth a model call
+      if (loose && hit.every((t) => t === "like")) continue;
       if (need.length === 1 && need[0]!.length < 5) continue;
       // "Does not like oat milk" is not supported by "I switched to oat milk", and "Likes jazz" is not supported by "I can't stand jazz".
       const window = Array.from({ length: span }, (_, k) => utterances[i + k]!.text).join(" ");

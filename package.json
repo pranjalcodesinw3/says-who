@@ -23,6 +23,7 @@
     "why": "node --disable-warning=ExperimentalWarning src/cli.ts why"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1154.0",
     "@beeai/cli": "^0.8.0"
   },
   "devDependencies": {

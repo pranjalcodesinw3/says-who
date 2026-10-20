@@ -1,6 +1,7 @@
 import type { Bee, Conversation, Fact } from "./bee.ts";
 import { toMs } from "./bee.ts";
 import { contentTokens, findSupport, quoteOf, type Support } from "./match.ts";
+import type { Judge } from "./judge.ts";
 import { relate } from "./relate.ts";
 import { TV_THRESHOLD, tvLikelihood, type TvContext } from "./tv.ts";
 
@@ -23,9 +24,10 @@ export type Receipt = {
   relatedFactText: string | null;
 };
 
-export type Ctx = { ownerNames: string[]; tv: TvContext };
+export type Ctx = { ownerNames: string[]; tv: TvContext; judge?: Judge };
 
 const HOUR = 3_600_000;
+const WEAK_SUPPORT = 0.8;
 
 // Pure: facts + the conversations that might have produced them -> receipt.
 // If any conversation supports the fact with a low TV score, that one wins: a fact the wearer really said stays supported
@@ -45,20 +47,63 @@ export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Rec
       : `no utterance in ${conversations.length} candidate conversation(s) says this`;
     return { ...base, verdict: "unsupported", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
   }
-  const u = pick.conv.utterances[pick.support.index]!;
+  return build(base, pick.conv, pick.support, pick.tv);
+}
+
+function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "searched">, conv: Conversation, support: Support, tv: ReturnType<typeof tvLikelihood>): Receipt {
+  const u = conv.utterances[support.index]!;
   return {
     ...base,
-    verdict: pick.tv.score >= TV_THRESHOLD ? "likely-tv" : "supported",
-    tvScore: pick.tv.score,
-    supportScore: Number(pick.support.score.toFixed(2)),
-    quote: quoteOf(u.text, pick.support.matched),
+    verdict: tv.score >= TV_THRESHOLD ? "likely-tv" : "supported",
+    tvScore: tv.score,
+    supportScore: Number(support.score.toFixed(2)),
+    quote: quoteOf(u.text, support.matched),
     speaker: u.speaker,
-    spokenAt: toMs(u.spoken_at) ?? toMs(pick.conv.start_time),
-    conversationId: pick.conv.id,
-    reasons: pick.tv.reasons,
+    spokenAt: toMs(u.spoken_at) ?? toMs(conv.start_time),
+    conversationId: conv.id,
+    reasons: tv.reasons,
     relatedFactId: null,
     relatedFactText: null,
   };
+}
+
+// Borderline = a match the lexical rules are not sure about: a supported receipt under 0.8 coverage (could be a coincidence),
+// or an unsupported one with a partial hit (could be a paraphrase). The judge sees one utterance and its neighbours, once per fact.
+// Its failure never changes the verdict: the heuristic stands and the receipt says the judge was unavailable.
+export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx, receipt: Receipt): Promise<Receipt> {
+  const judge = ctx.judge;
+  if (!judge) return receipt;
+  type Pick = { conv: Conversation; index: number; support: Support };
+  let pick: Pick | null = null;
+  if (receipt.verdict === "unsupported") {
+    for (const conv of conversations) {
+      const support = findSupport(fact.text, conv.utterances, ctx.ownerNames, true);
+      if (support && (!pick || support.score > pick.support.score)) pick = { conv, index: support.index, support };
+    }
+  } else if (receipt.supportScore < WEAK_SUPPORT) {
+    const conv = conversations.find((c) => c.id === receipt.conversationId);
+    const support = conv && findSupport(fact.text, conv.utterances, ctx.ownerNames);
+    if (conv && support) pick = { conv, index: support.index, support };
+  }
+  if (!pick) return receipt;
+  const us = pick.conv.utterances;
+  try {
+    const d = await judge.decide({
+      factText: fact.text, utterance: us[pick.index]!.text, speaker: us[pick.index]!.speaker,
+      before: us[pick.index - 1]?.text ?? null, after: us[pick.index + 1]?.text ?? null,
+    });
+    const note = `judge ${judge.name}: ${d.supports ? "supports" : "does not support"}${d.reason ? ` (${d.reason})` : ""}`;
+    if (receipt.verdict === "unsupported" && d.supports) {
+      const r = build({ factId: fact.id, factText: fact.text, factCreatedAt: receipt.factCreatedAt, searched: receipt.searched }, pick.conv, pick.support, tvLikelihood(pick.conv, pick.index, ctx.tv));
+      return { ...r, reasons: [note, ...r.reasons] };
+    }
+    if (receipt.verdict !== "unsupported" && !d.supports) {
+      return { ...receipt, verdict: "unsupported", supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
+    }
+    return { ...receipt, reasons: [note, ...receipt.reasons] };
+  } catch (e) {
+    return { ...receipt, reasons: [`judge ${judge.name} unavailable (${e instanceof Error ? e.name : "error"}), heuristic verdict kept`, ...receipt.reasons] };
+  }
 }
 
 async function fetchAll(bee: Bee, ids: number[], seen: Map<number, Conversation>, max: number): Promise<void> {
@@ -85,6 +130,7 @@ export async function receiptFor(bee: Bee, fact: Fact, ctx: Ctx, peers: Fact[] =
     await fetchAll(bee, await bee.searchConversationIds({ query: fact.text, neural: true, limit: 5, ...window }), seen, 4);
     receipt = assess(fact, [...seen.values()], ctx);
   }
+  receipt = await refine(fact, [...seen.values()], ctx, receipt);
   return withRelation(receipt, fact, peers, ctx);
 }
 

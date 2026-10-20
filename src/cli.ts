@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { realBee, type Fact } from "./bee.ts";
+import { judgeFromEnv } from "./judge.ts";
 import { openLedger } from "./ledger.ts";
 import { contentTokens } from "./match.ts";
 import { receiptFor, type Ctx } from "./provenance.ts";
@@ -23,7 +24,7 @@ const log = (line: string) => console.log(`${new Date().toISOString().slice(11, 
 async function deps(): Promise<Deps> {
   const bee = realBee();
   const me = await bee.whoami(); // throws 'Not logged in. Run "bee login" first.' when there is no session
-  const ctx: Ctx = { ownerNames: me.name.split(/\s+/).filter(Boolean), tv: tvContext(me.name) };
+  const ctx: Ctx = { ownerNames: me.name.split(/\s+/).filter(Boolean), tv: tvContext(me.name), judge: judgeFromEnv() };
   return { bee, ledger: openLedger(dbPath), ctx, log };
 }
 
