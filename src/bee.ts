@@ -1,5 +1,5 @@
 // The only module that talks to Bee. Everything else takes a `Bee`.
-// Shapes below come from bee-cli 0.8.0 (84a6e8f); each type cites its source in NOTES.md.
+// Shapes below come from bee-cli 0.8.0 (84a6e8f). Paths are relative to sources/; NOTES.md lists every one.
 import { createBeeClient } from "@beeai/cli/lib";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -32,7 +32,7 @@ export type Bee = {
 
 export class NotFound extends Error {}
 
-// Bee timestamps arrive as epoch seconds or milliseconds (sources/commands/now/index.ts:200).
+// Bee timestamps arrive as epoch seconds or milliseconds (commands/now/index.ts:200-211).
 export function toMs(v: number | null | undefined): number | null {
   if (typeof v !== "number" || !Number.isFinite(v)) return null;
   if (v > 1e12) return v;
@@ -44,7 +44,7 @@ type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec => (v && typeof v === "object" ? (v as Rec) : {});
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
-// get/create/update responses are either the bare object or { fact } / { todo } (facts/index.ts:49-70, todos/index.ts:78-92).
+// get/create/update responses are either the bare object or { fact } / { todo } (resources/facts/index.ts:84-117, resources/todos/index.ts:80-100).
 export function parseFact(payload: unknown): Fact {
   const r = rec(payload);
   const f = rec(r.fact ?? r);
@@ -71,8 +71,8 @@ export function parseTodo(payload: unknown): Todo {
   };
 }
 
-// conversations get -> { conversation: { transcriptions: [{ realtime, utterances: [...] }] } } (conversations/index.ts:353-380).
-// Same transcription pick as the CLI renderer: first non-realtime, else first (conversations/index.ts:541-549).
+// conversations get -> { conversation: { transcriptions: [{ realtime, utterances: [...] }] } } (resources/conversations/index.ts:353-386).
+// Same transcription pick as the CLI renderer: first non-realtime, else first (resources/conversations/index.ts:541-549).
 export function parseConversation(payload: unknown): Conversation {
   const c = rec(rec(payload).conversation ?? payload);
   if (typeof c.id !== "number") throw new Error("Unexpected conversation payload from Bee CLI.");
@@ -97,7 +97,7 @@ export function parseConversation(payload: unknown): Conversation {
   };
 }
 
-// search results: { results: [{ id, ... }], total } (search/index.ts:468-486). Result shape beyond id is not
+// search results: { results: [{ id, ... }], total } (resources/search/index.ts:441-460). Result shape beyond id is not
 // documented in source, so only ids are read and every candidate is re-fetched through conversations get.
 export function parseSearchIds(payload: unknown): number[] {
   return arr(rec(payload).results)
@@ -119,13 +119,13 @@ export function realBee(options: { command?: string; env?: Record<string, string
   const api = client.api;
   return {
     async whoami() {
-      // `bee me --json` is { id, first_name, last_name } (client/clientMe.ts:32-45).
+      // `bee me --json` is { id, first_name, last_name } (client/clientMe.ts:7-11, 32-44).
       const u = rec(await api.me());
       if (typeof u.id !== "number") throw new Error("Unexpected profile payload from Bee CLI.");
       return { id: Number(u.id), name: [u.first_name, u.last_name].filter(Boolean).join(" ") };
     },
     async changed(cursor) {
-      // `bee changed --json` prints { meta: { next_cursor }, facts: [Fact], todos: [Todo], conversations: [...] } (commands/changed/index.ts:30-45).
+      // `bee changed --json` prints { meta: { next_cursor }, facts: [Fact], todos: [Todo], conversations: [...] } (commands/changed/index.ts:36-45).
       const r = rec(await api.changed(cursor ? { cursor } : undefined));
       const next = rec(r.meta).next_cursor;
       return {
@@ -175,7 +175,7 @@ export function realBee(options: { command?: string; env?: Record<string, string
       }
       return out;
     },
-    // `bee stream --json` payloads carry no top-level `event` field, so the stream is only a wake-up
+    // `bee stream --json` prints the raw SSE data with no top-level `event` field (commands/stream/index.ts:315,351), so the stream is only a wake-up
     // signal: --types todo-updated filters server side and the poll in watch.ts reads the truth.
     onTodoUpdated(wake) {
       let closed = false;

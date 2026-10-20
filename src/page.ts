@@ -61,15 +61,15 @@ export function renderPage(rows: Row[], opts: { error?: string } = {}): string {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Receipts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--desk:#1f1d1a;--desk-2:#2a2824;--paper:#efe8d8;--paper-edge:#d9d0bb;--ink:#1d1b17;--ink-soft:#5d574a;--chalk:#e9e3d3;--chalk-soft:#a49d8c;--ok:#2d6a4f;--warn:#b4561f;--bad:#a8321f;
---font-display:"Fraunces",Georgia,serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+--font-display:"Big Shoulders Display",Impact,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}
 html,body{margin:0;overflow-x:clip}
 body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mono);padding:40px 16px}
 main{max-width:560px;margin:0 auto}
-h1{font:600 32px/1.1 var(--font-display);margin:0 0 8px;letter-spacing:-.01em}
+h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
 .tape{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--desk-2);border-radius:2px;margin:0 0 24px;border:1px solid #3a3731}
 .tape div{padding:12px;border-right:1px solid #3a3731}.tape div:last-child{border-right:0}

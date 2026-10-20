@@ -36,6 +36,8 @@ mutate "matcher always returns a hit" src/match.ts 's/(export function findSuppo
 mutate "forget without checking the tick" src/watch.ts 's/if \(completed && \(await forgetFact/if (true \&\& (await forgetFact/'
 mutate "no TV signal at all" src/tv.ts 's/return \{ score: Math\.min\(1, Number\(score\.toFixed\(2\)\)\), reasons \};/return { score: 0, reasons };/'
 mutate "cursor saved even when the batch failed" src/watch.ts 's/const cursorSaved = failed === 0 && next !== null;/const cursorSaved = next !== null;/'
+mutate "cursor never passed to bee changed" src/bee.ts 's/api\.changed\(cursor \? \{ cursor \} : undefined\)/api.changed(undefined)/'
+mutate "search not scoped to conversations" src/bee.ts 's/filter: "conversations" \}/filter: "all" }/'
 mutate "zero-facts gate removed from live-check" scripts/live-check.ts 's/if \(facts\.length === 0\) die\(3/if (false) die(3/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

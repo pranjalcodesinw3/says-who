@@ -11,7 +11,7 @@ export type Deps = {
   alarmLeadMs?: number;
 };
 
-// The fact id rides in the to-do text because a Bee to-do has no tags or metadata field (todos/index.ts:49-55).
+// The fact id rides in the to-do text because a Bee to-do has no tags or metadata field (resources/todos/index.ts:49-55).
 export const LABEL_RE = /\[rcpt:(\d+)\]/;
 export const labelFor = (factId: number) => `[rcpt:${factId}]`;
 
@@ -122,7 +122,7 @@ export async function tick(d: Deps): Promise<TickResult> {
     facts = ch.facts;
     next = ch.nextCursor;
   } catch (e) {
-    // `bee changed` GETs every changed id (commands/changed/index.ts:178-190) and throws on the first that fails,
+    // `bee changed` GETs every changed id (commands/changed/index.ts:28-35, 229-240) and throws on the first that fails,
     // so one deleted fact can wedge the feed. Fall back to the pending list and leave the cursor where it is.
     d.log(`changed failed (${e instanceof Error ? e.message : String(e)}); falling back to pending facts, cursor unchanged`);
     facts = await d.bee.listFacts({ unconfirmed: true });

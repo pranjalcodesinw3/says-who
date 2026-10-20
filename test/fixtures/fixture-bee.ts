@@ -1,6 +1,6 @@
 // FIXTURE, NOT BEE DATA. Everything in this file is invented test input.
 // Payload shapes come from bee-cli 0.8.0 source (see NOTES.md): conversations get
-// resources/conversations/index.ts:353-380, facts facts/index.ts:13-19, todos todos/index.ts:49-55.
+// resources/conversations/index.ts:353-386, facts resources/facts/index.ts:55-61, todos resources/todos/index.ts:49-55.
 // Nothing under src/ imports this file; the product path only ever builds realBee().
 import { NotFound, type Bee, type Changes, type Conversation, type Fact, type Todo } from "../../src/bee.ts";
 

@@ -1,8 +1,8 @@
 # Receipts design tokens
 
-Direction: the page is a desk with till receipts on it. Each Bee fact is a paper slip with the evidence printed under it and a verdict stamp. Monospace for everything that was printed, one serif for the title.
+Direction: the page is a desk with till receipts on it. Each Bee fact is a paper slip with the evidence printed under it and a verdict stamp. Monospace for everything that was printed, one condensed ticket face for the title.
 
-Fonts (Google Fonts, loaded in the page head): Fraunces 600 for the title, IBM Plex Mono 400/500/600 for all slip text.
+Fonts (Google Fonts, loaded in the page head): Big Shoulders Display 700 for the title, IBM Plex Mono 400/500/600 for all slip text.
 
 | Token | Value | Use |
 |---|---|---|
@@ -18,5 +18,5 @@ Fonts (Google Fonts, loaded in the page head): Fraunces 600 for the title, IBM P
 | --warn | #b4561f | likely-TV stamp |
 | --bad | #a8321f | no-receipt stamp |
 
-Spacing scale 4/8/12/16/24/40. Radius 2px on slips (paper has corners), 6px on buttons. Type scale 12/14/16/20/32. Slip width 560px max, single column; the desk strip above shows four counts in one line of tape.
+Spacing scale 4/8/12/16/24/40. Radius 2px on slips (paper has corners), 6px on buttons. Type scale 12/14/16/20/40. Slip width 560px max, single column; the desk strip above shows four counts in one line of tape.
 Motion: none except a 120ms background transition on buttons, disabled under prefers-reduced-motion.
