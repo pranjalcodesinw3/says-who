@@ -72,6 +72,31 @@ export async function ensureReceipt(d: Deps, fact: Fact): Promise<Row> {
   return row;
 }
 
+// A receipt stored before a crash may have no wrist to-do yet, and the changed cursor may already be past its fact, so the feed will not
+// deliver it again. Every tick re-offers the open, doubtful receipts that never got a to-do, so a restart loses no pending decision.
+export async function resumePending(d: Deps): Promise<number> {
+  let resumed = 0;
+  for (const row of d.ledger.all()) {
+    if (row.todoId !== null || row.decision !== null || !isDoubtful(row)) continue;
+    let fact: Fact;
+    try {
+      fact = await d.bee.getFact(row.factId);
+    } catch (e) {
+      if (!(e instanceof NotFound)) throw e;
+      d.ledger.decide(row.factId, "already-gone", null);
+      d.log(`fact ${row.factId}: gone from Bee before its to-do existed`);
+      continue;
+    }
+    if (fact.confirmed) {
+      d.ledger.decide(row.factId, "confirmed", null);
+      continue;
+    }
+    await ensureTodo(d, row);
+    resumed++;
+  }
+  return resumed;
+}
+
 // Delete, then read back: a 200 from delete is an accepted request, `facts get` returning not-found is the post-condition.
 export async function forgetFact(d: Deps, factId: number): Promise<boolean> {
   let already = false;
@@ -152,6 +177,12 @@ export async function tick(d0: Deps): Promise<TickResult> {
       failed++;
       d.log(`fact ${fact.id}: ${e instanceof Error ? e.message : String(e)} (will retry)`);
     }
+  }
+  try {
+    await resumePending(d);
+  } catch (e) {
+    failed++;
+    d.log(`resume: ${e instanceof Error ? e.message : String(e)} (will retry)`);
   }
   let decided = 0;
   try {

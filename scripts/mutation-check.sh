@@ -8,7 +8,7 @@ cur_file=""; cur_bak=""
 restore() { [ -n "$cur_file" ] && cp "$cur_bak" "$cur_file"; }
 trap restore EXIT
 
-suite() { node --disable-warning=ExperimentalWarning --test test/*.test.ts 2>&1; }
+suite() { env -u AWS_BEARER_TOKEN_BEDROCK node --disable-warning=ExperimentalWarning --test test/*.test.ts 2>&1; }
 fails() { suite | grep -E "^ℹ fail" | awk '{print $3}'; }
 status=0
 
@@ -61,5 +61,7 @@ mutate "demo-day script skips the gone read-back" scripts/forced-fault.sh 's/if 
 mutate "page drops Receipts' reading beside Bee's speaker label" src/page.ts 's/\n      \$\{attribution\(r\)\}//'
 mutate "receipt of the day picks the least doubtful receipt" src/page.ts 's/URGENCY\[b\.verdict\] - URGENCY\[a\.verdict\]/URGENCY[a.verdict] - URGENCY[b.verdict]/'
 mutate "demo buttons write to the real ledger" src/server.ts 's/d = await \(demo \?\?= buildDemo\(\)\);/d = d0;/'
+mutate "restart forgets receipts that never got a to-do" src/watch.ts 's/\n    await resumePending\(d\);//'
+mutate "restart loses the saved cursor" src/ledger.ts 's/const r = db\.prepare\("SELECT v FROM kv WHERE k = .cursor."\)\.get\(\);\n      return r \? String\(r\.v\) : undefined;/return undefined;/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status
