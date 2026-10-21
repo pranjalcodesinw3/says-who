@@ -19,19 +19,23 @@ export const labelFor = (factId: number) => `[rcpt:${factId}]`;
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 3)}...` : s);
 
+// The prompt asks instead of accusing: a doubtful fact is either something the wearer said or something they only heard.
+// Wording never claims TV as fact, and "no evidence" names how many conversations were searched.
 export function todoText(r: Receipt): string {
   const when = r.spokenAt ? new Date(r.spokenAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : null;
+  const q = r.quote ? `: "${clip(r.quote, 45)}"` : "";
+  const ask = "Did you say it, or hear it?";
   const why =
     r.verdict === "likely-tv"
-      ? `Heard${when ? ` ${when}` : ""}, TV-like${r.quote ? `: "${clip(r.quote, 60)}"` : ""}`
+      ? `${ask} Heard${when ? ` ${when}` : ""}${r.speaker && r.speaker.toLowerCase() !== "unknown" ? `, ${clip(r.speaker, 20)}` : ""}${q}`
       : r.verdict === "unattributed"
-        ? `A matching line is not tied to you${r.quote ? `: "${clip(r.quote, 60)}"` : ""}`
-      : r.verdict === "duplicate"
-        ? `Bee already has this as fact ${r.relatedFactId}`
-        : r.verdict === "contradicts"
-          ? `You confirmed the opposite: "${clip(r.relatedFactText ?? "", 60)}"`
-          : "No evidence found in searched conversations";
-  return `Bee thinks "${clip(r.factText, 80)}". ${why}. Tick = forget ${labelFor(r.factId)}`;
+        ? `${ask} ${r.attribution === "other" ? "Nearby line is about someone else" : "Nearby line has no clear speaker"}${q}`
+        : r.verdict === "duplicate"
+          ? `Bee already has this as fact ${r.relatedFactId}`
+          : r.verdict === "contradicts"
+            ? `You confirmed the opposite: "${clip(r.relatedFactText ?? "", 45)}"`
+            : `Did you say it? No line in the ${r.searched} searched conversation${r.searched === 1 ? "" : "s"} shows it`;
+  return `Bee wrote "${clip(r.factText, 60)}". ${why}. Tick = forget ${labelFor(r.factId)}`;
 }
 
 export function isDoubtful(r: Pick<Receipt, "verdict">): boolean {

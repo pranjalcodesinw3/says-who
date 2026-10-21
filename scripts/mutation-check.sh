@@ -52,5 +52,6 @@ mutate "likely-tv without a line-level cue" src/provenance.ts 's/tv\.lineLevel &
 mutate "Unknown is a default wearer label again" src/tv.ts 's/"you,me,user,owner,wearer"/"unknown,you,me,user,owner,wearer"/'
 mutate "non-wearer speaker does not block self attribution" src/match.ts 's/  if \(kind === "other"\) return \{ kind: "other", why: \`the line was spoken by/  if (false) return { kind: "other", why: \`the line was spoken by/'
 mutate "relations and pronouns no longer name someone else" src/match.ts 's/(export function subjectOf\([^\n]*\{\n)/$1  const f = FIRST_RE.exec(clause); if (f) return { kind: "self", cue: f[0] };\n/'
+mutate "wrist prompt drops the say-or-hear question" src/watch.ts 's/const ask = "Did you say it, or hear it\?";/const ask = "Looks like TV.";/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

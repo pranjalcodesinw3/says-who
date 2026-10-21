@@ -131,10 +131,25 @@ test("confirm is verified by reading the fact back", async () => {
   assert.equal(d.ledger.get(1)!.decision, "confirmed");
 });
 
-test("wrist text keeps the label even for a long fact", () => {
-  const text = todoText({ factId: 12, factText: "x".repeat(400), verdict: "no-evidence", quote: null, spokenAt: null } as never);
-  assert.match(text, /\[rcpt:12\]$/);
-  assert.ok(text.length < 220);
+test("wrist text keeps the label and stays short for every verdict, even with a 400 character fact and quote", () => {
+  const long = "x".repeat(400);
+  for (const [verdict, attribution] of [["no-evidence", null], ["likely-tv", "other"], ["unattributed", "other"], ["unattributed", "unclear"], ["duplicate", null], ["contradicts", null]] as const) {
+    const text = todoText({ factId: 12345, factText: long, verdict, attribution, quote: long, speaker: "Speaker 12345678901234567890", spokenAt: 1_700_000_000_000, searched: 12, relatedFactId: 3, relatedFactText: long } as never);
+    assert.match(text, /\[rcpt:12345\]$/, verdict);
+    assert.ok(text.length < 220, `${verdict} ${attribution} is ${text.length} chars`);
+  }
+});
+
+test("wrist copy asks 'say it or hear it' for doubtful lines, never asserts TV, and says how much was searched when nothing was found", () => {
+  const base = { factId: 4, factText: "Dave is a criminal lawyer", quote: "He is a criminal lawyer", speaker: "Speaker 2", spokenAt: 1_700_000_000_000, searched: 7, relatedFactId: null, relatedFactText: null };
+  const tv = todoText({ ...base, verdict: "likely-tv", attribution: "other" } as never);
+  assert.match(tv, /Did you say it, or hear it\? Heard .*, Speaker 2: "He is a criminal lawyer"/);
+  assert.ok(!/TV/.test(tv), tv);
+  assert.match(todoText({ ...base, verdict: "unattributed", attribution: "other" } as never), /about someone else/);
+  assert.match(todoText({ ...base, verdict: "unattributed", attribution: "unclear" } as never), /no clear speaker/);
+  const none = todoText({ ...base, verdict: "no-evidence", attribution: null, quote: null, speaker: null } as never);
+  assert.match(none, /No line in the 7 searched conversations shows it/);
+  assert.ok(!/heard/i.test(none), "no evidence found says nothing about hearing it");
 });
 
 test("REAL CLIENT: createBeeClient -> bundled bee binary reports a missing login (isolated config dir, no fixtures)", async () => {
