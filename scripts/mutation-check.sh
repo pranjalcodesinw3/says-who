@@ -34,7 +34,7 @@ mutate() { # name file perl-expression
 
 mutate "matcher always returns a hit" src/match.ts 's/(export function findSupport\([^\n]*\{\n)/$1  return { score: 1, index: 0, matched: contentTokens(factText, ownerNames) };\n/'
 mutate "forget without checking the tick" src/watch.ts 's/if \(completed && \(await forgetFact/if (true \&\& (await forgetFact/'
-mutate "no TV signal at all" src/tv.ts 's/return \{ score: Math\.min\(1, Number\(score\.toFixed\(2\)\)\), reasons \};/return { score: 0, reasons };/'
+mutate "no TV signal at all" src/tv.ts 's/return \{ score: Math\.min\(1, Number\(score\.toFixed\(2\)\)\), reasons, lineLevel \};/return { score: 0, reasons, lineLevel };/'
 mutate "cursor saved even when the batch failed" src/watch.ts 's/const cursorSaved = failed === 0 && next !== null;/const cursorSaved = next !== null;/'
 mutate "cursor never passed to bee changed" src/bee.ts 's/api\.changed\(cursor \? \{ cursor \} : undefined\)/api.changed(undefined)/'
 mutate "search not scoped to conversations" src/bee.ts 's/filter: "conversations" \}/filter: "all" }/'
@@ -46,5 +46,11 @@ mutate "strong support also asks the judge" src/provenance.ts 's/const WEAK_SUPP
 mutate "zero-facts gate removed from live-check" scripts/live-check.ts 's/if \(facts\.length === 0\) die\(3/if (false) die(3/'
 mutate "search scope not recorded on the receipt" src/provenance.ts 's/receipt = \{ \.\.\.receipt, scope: scopeOf\(\[\.\.\.seen\.values\(\)\], methods, window\) \};//'
 mutate "review page hides the search scope" src/page.ts 's/\$\{scope\(r\)\}\n//'
+mutate "attribution ignored: any keyword match is support" src/provenance.ts 's/attr\.kind === "self" \? "supported" : tv\.lineLevel && tv\.score >= TV_THRESHOLD \? "likely-tv" : "unattributed"/tv.score >= TV_THRESHOLD ? "likely-tv" : "supported"/'
+mutate "conversation-level cues alone convict a line" src/provenance.ts 's/attr\.kind === "self" \? "supported" : tv\.lineLevel && tv\.score >= TV_THRESHOLD \? "likely-tv" : "unattributed"/tv.score >= TV_THRESHOLD ? "likely-tv" : attr.kind === "self" ? "supported" : "unattributed"/'
+mutate "likely-tv without a line-level cue" src/provenance.ts 's/tv\.lineLevel && tv\.score >= TV_THRESHOLD \? "likely-tv"/tv.score >= TV_THRESHOLD ? "likely-tv"/'
+mutate "Unknown is a default wearer label again" src/tv.ts 's/"you,me,user,owner,wearer"/"unknown,you,me,user,owner,wearer"/'
+mutate "non-wearer speaker does not block self attribution" src/match.ts 's/  if \(kind === "other"\) return \{ kind: "other", why: \`the line was spoken by/  if (false) return { kind: "other", why: \`the line was spoken by/'
+mutate "relations and pronouns no longer name someone else" src/match.ts 's/(export function subjectOf\([^\n]*\{\n)/$1  const f = FIRST_RE.exec(clause); if (f) return { kind: "self", cue: f[0] };\n/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

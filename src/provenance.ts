@@ -1,11 +1,11 @@
 import type { Bee, Conversation, Fact } from "./bee.ts";
 import { toMs } from "./bee.ts";
-import { contentTokens, findSupport, quoteOf, type Support } from "./match.ts";
+import { contentTokens, findSupport, quoteOf, type Attribution, type Support } from "./match.ts";
 import type { Judge } from "./judge.ts";
 import { relate } from "./relate.ts";
-import { TV_THRESHOLD, tvLikelihood, type TvContext } from "./tv.ts";
+import { TV_THRESHOLD, speakerKind, tvLikelihood, type TvContext } from "./tv.ts";
 
-export const VERDICTS = ["supported", "likely-tv", "no-evidence", "duplicate", "contradicts"] as const;
+export const VERDICTS = ["supported", "likely-tv", "unattributed", "no-evidence", "duplicate", "contradicts"] as const;
 export type Verdict = (typeof VERDICTS)[number];
 
 // What was actually searched. A no-evidence verdict is only as strong as this: a bounded search, not a proof that nobody said it.
@@ -20,6 +20,8 @@ export type Receipt = {
   supportScore: number;
   quote: string | null;
   speaker: string | null;
+  // who the matching line is about: self (tied to the wearer), other (someone else or a non-wearer speaker), unclear (nothing ties it); null without a matching line
+  attribution: Attribution["kind"] | null;
   spokenAt: number | null;
   conversationId: number | null;
   reasons: string[];
@@ -34,23 +36,31 @@ export type Ctx = { ownerNames: string[]; tv: TvContext; judge?: Judge };
 const HOUR = 3_600_000;
 const WEAK_SUPPORT = 0.8;
 
+const supportIn = (fact: Fact, conv: Conversation, ctx: Ctx, loose = false) =>
+  findSupport(fact.text, conv.utterances, ctx.ownerNames, loose, (label) => speakerKind(ctx.tv, label));
+
 // Pure: facts + the conversations that might have produced them -> receipt.
-// If any conversation supports the fact with a low TV score, that one wins: a fact the wearer really said stays supported
-// even when the same words also played on TV.
+// A line attributed to the wearer beats any other; then the lowest TV signal, then the best match. A fact the wearer really said
+// stays supported even when the same words also played on TV.
 export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Receipt {
-  let pick: { conv: Conversation; support: Support; tv: ReturnType<typeof tvLikelihood> } | null = null;
+  type Pick = { conv: Conversation; support: Support; tv: ReturnType<typeof tvLikelihood> };
+  const better = (a: Pick, b: Pick) => {
+    const self = (p: Pick) => (p.support.attribution.kind === "self" ? 0 : 1);
+    return self(a) - self(b) || a.tv.score - b.tv.score || b.support.score - a.support.score;
+  };
+  let pick: Pick | null = null;
   for (const conv of conversations) {
-    const support = findSupport(fact.text, conv.utterances, ctx.ownerNames);
+    const support = supportIn(fact, conv, ctx);
     if (!support) continue;
-    const tv = tvLikelihood(conv, support.index, ctx.tv);
-    if (!pick || tv.score < pick.tv.score || (tv.score === pick.tv.score && support.score > pick.support.score)) pick = { conv, support, tv };
+    const cand = { conv, support, tv: tvLikelihood(conv, support.index, ctx.tv) };
+    if (!pick || better(cand, pick) < 0) pick = cand;
   }
   const base = { factId: fact.id, factText: fact.text, factCreatedAt: toMs(fact.created_at), searched: conversations.length, scope: scopeOf(conversations) };
   if (!pick) {
     const reason = contentTokens(fact.text, ctx.ownerNames).length === 0
       ? "fact has no checkable content words"
       : `no evidence found in the ${conversations.length} searched conversation(s)`;
-    return { ...base, verdict: "no-evidence", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
+    return { ...base, verdict: "no-evidence", tvScore: 0, supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
   }
   return build(base, pick.conv, pick.support, pick.tv);
 }
@@ -64,16 +74,23 @@ export function scopeOf(conversations: Conversation[], methods: string[] = [], w
 
 function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "searched" | "scope">, conv: Conversation, support: Support, tv: ReturnType<typeof tvLikelihood>): Receipt {
   const u = conv.utterances[support.index]!;
+  const attr = support.attribution;
+  // Supported needs evidence that the line is about the wearer. Likely-tv needs a cue on the line itself, not just a TV-like room.
+  const verdict: Verdict = attr.kind === "self" ? "supported" : tv.lineLevel && tv.score >= TV_THRESHOLD ? "likely-tv" : "unattributed";
+  const roomOnly = attr.kind === "self" && tv.score >= TV_THRESHOLD
+    ? [`the conversation looks TV-like (${tv.score.toFixed(2)}) but only from conversation-level cues, and this line is attributed to the wearer`]
+    : [];
   return {
     ...base,
-    verdict: tv.score >= TV_THRESHOLD ? "likely-tv" : "supported",
+    verdict,
+    attribution: attr.kind,
     tvScore: tv.score,
     supportScore: Number(support.score.toFixed(2)),
     quote: quoteOf(u.text, support.matched),
     speaker: u.speaker,
     spokenAt: toMs(u.spoken_at) ?? toMs(conv.start_time),
     conversationId: conv.id,
-    reasons: tv.reasons,
+    reasons: [attr.why, ...roomOnly, ...tv.reasons],
     relatedFactId: null,
     relatedFactText: null,
   };
@@ -89,12 +106,12 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
   let pick: Pick | null = null;
   if (receipt.verdict === "no-evidence") {
     for (const conv of conversations) {
-      const support = findSupport(fact.text, conv.utterances, ctx.ownerNames, true);
+      const support = supportIn(fact, conv, ctx, true);
       if (support && (!pick || support.score > pick.support.score)) pick = { conv, index: support.index, support };
     }
   } else if (receipt.supportScore < WEAK_SUPPORT) {
     const conv = conversations.find((c) => c.id === receipt.conversationId);
-    const support = conv && findSupport(fact.text, conv.utterances, ctx.ownerNames);
+    const support = conv && supportIn(fact, conv, ctx);
     if (conv && support) pick = { conv, index: support.index, support };
   }
   if (!pick) return receipt;
@@ -110,7 +127,7 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
       return { ...r, reasons: [note, ...r.reasons] };
     }
     if (receipt.verdict !== "no-evidence" && !d.supports) {
-      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
+      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
     }
     return { ...receipt, reasons: [note, ...receipt.reasons] };
   } catch (e) {

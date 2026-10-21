@@ -111,3 +111,76 @@ test("no-evidence is a bounded-search verdict: the receipt records which convers
   assert.ok(r.reasons.some((x) => /no evidence found/.test(x)), "reason says no evidence found, never 'nobody said it'");
   assert.ok(!r.reasons.some((x) => /unsupported|no one|nobody/i.test(x)));
 });
+
+// ---- attribution: matching words is not evidence that the line is about the wearer ----
+import { subjectOf } from "../src/match.ts";
+import { BROTHER_CONVO, BROTHER_THEN_SELF_CONVO, FACT_VEGAN, NO_SUBJECT_CONVO, PRIYA_VEGAN_CONVO, TV_OAT_CONVO, WEARER_IN_TV_CONVO } from "./fixtures/fixture-bee.ts";
+
+test("MUST-FAIL: 'my brother is vegan' shares every keyword of the fact but is not support for 'Dave is vegan'", () => {
+  const lexical = findSupport(FACT_VEGAN.text, BROTHER_CONVO.utterances, ["Dave"]);
+  assert.ok(lexical, "the keywords do match, so only attribution can reject it");
+  assert.equal(lexical!.attribution.kind, "other");
+  const r = assess(FACT_VEGAN, [BROTHER_CONVO], { ownerNames: ["Dave"], tv: tvContext("Dave") });
+  assert.equal(r.verdict, "unattributed");
+  assert.equal(r.attribution, "other");
+  assert.match(r.quote!, /brother is vegan/);
+  assert.ok(r.reasons.some((x) => /my brother/.test(x)), r.reasons.join(" | "));
+});
+
+test("the same conversation becomes supported once the wearer says it about themselves", () => {
+  const r = assess(FACT_VEGAN, [BROTHER_THEN_SELF_CONVO], { ownerNames: ["Dave"], tv: tvContext("Dave") });
+  assert.equal(r.verdict, "supported");
+  assert.match(r.quote!, /I'm vegan too/);
+  assert.equal(r.attribution, "self");
+});
+
+test("a pronoun, a relation or a named participant each mark a clause as about someone else; first person marks it self", () => {
+  const names = new Set(["priya"]);
+  assert.deepEqual(subjectOf("she is vegan", names), { kind: "other", cue: "she" });
+  assert.equal(subjectOf("my younger sister is vegan", names).kind, "other");
+  assert.equal(subjectOf("Priya is vegan", names).kind, "other");
+  assert.equal(subjectOf("I am vegan", names).kind, "self");
+  assert.equal(subjectOf("my job is lawyer", names).kind, "self");
+  assert.equal(subjectOf("vegan food is great", names).kind, "none");
+});
+
+test("Unknown is unknown attribution: no subject in the line means nothing ties it to the wearer", () => {
+  const ctx0 = { ownerNames: ["Dave"], tv: tvContext("Dave") };
+  const r = assess(FACT_VEGAN, [NO_SUBJECT_CONVO], ctx0);
+  assert.equal(r.verdict, "unattributed");
+  assert.equal(r.attribution, "unclear");
+  assert.ok(r.reasons.some((x) => /Unknown/.test(x)));
+  assert.equal(r.tvScore, 0, "Unknown adds no TV points either");
+  assert.equal(tvContext("Dave").wearerSpeakers.has("unknown"), false, "Unknown is not a default wearer label");
+  // opting in is explicit: the label then counts as the wearer even without first person
+  const optIn = { ownerNames: ["Dave"], tv: { wearerSpeakers: new Set(["unknown"]), extraCues: [] } };
+  assert.equal(assess(FACT_VEGAN, [NO_SUBJECT_CONVO], optIn).verdict, "supported");
+});
+
+test("a labelled non-wearer saying it about themselves is not the wearer, and a quiet room is not TV: unattributed", () => {
+  const r = assess(FACT_VEGAN, [PRIYA_VEGAN_CONVO], { ownerNames: ["Dave"], tv: tvContext("Dave") });
+  assert.equal(r.verdict, "unattributed");
+  assert.equal(r.speaker, "Priya");
+  assert.ok(r.tvScore < 0.5, `tv ${r.tvScore}`);
+});
+
+test("MUST-FAIL: the wearer's own sentence inside a TV-like conversation is not likely-tv from conversation-level cues alone", () => {
+  const room = tvLikelihood(WEARER_IN_TV_CONVO, WEARER_IN_TV_CONVO.utterances.length - 1, ctx.tv);
+  assert.ok(room.score >= 0.5, `the room must look like TV for this test to mean anything, got ${room.score}`);
+  assert.equal(room.lineLevel, false);
+  const r = assess(FACT_OAT, [WEARER_IN_TV_CONVO], ctx);
+  assert.equal(r.verdict, "supported");
+  assert.ok(r.tvScore >= 0.5);
+  assert.ok(r.reasons.some((x) => /conversation-level cues/.test(x)), "the receipt still shows the room looked like TV");
+  // control: same room, same words, but a labelled non-wearer voice says them -> a line-level cue exists -> likely-tv
+  const control = assess(FACT_OAT, [TV_OAT_CONVO], ctx);
+  assert.equal(control.verdict, "likely-tv");
+});
+
+test("an Unknown-labelled line in a TV-like room is unattributed, not likely-tv: the room alone cannot convict the line", async () => {
+  const { TV_UNKNOWN_LABEL_CONVO } = await import("./fixtures/fixture-bee.ts");
+  const r = assess(FACT_LAWYER, [TV_UNKNOWN_LABEL_CONVO], ctx);
+  assert.ok(r.tvScore >= 0.5, `the room must score as TV, got ${r.tvScore}`);
+  assert.equal(r.verdict, "unattributed");
+  assert.ok(r.reasons.some((x) => /Unknown/.test(x)));
+});

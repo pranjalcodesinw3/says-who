@@ -8,6 +8,7 @@ const time = (ms: number | null) =>
 const STAMP: Record<Verdict, { label: string; cls: string }> = {
   supported: { label: "Receipt found", cls: "ok" },
   "likely-tv": { label: "Likely TV", cls: "warn" },
+  unattributed: { label: "Not tied to you", cls: "warn" },
   "no-evidence": { label: "No evidence found", cls: "bad" },
   duplicate: { label: "Duplicate", cls: "warn" },
   contradicts: { label: "Conflict", cls: "bad" },
@@ -21,6 +22,8 @@ function status(r: Row): string {
   return "";
 }
 
+// "Unknown" is Bee's label for anyone it could not name. It is not the wearer and not a stranger, so the copy says so.
+const speakerCopy = (r: Row) => (!r.speaker || r.speaker.toLowerCase() === "unknown" ? "Unknown (Bee did not name the speaker)" : r.speaker);
 const shortTime = (ms: number) => new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 // The search scope: which conversations were read, when they started, how they were found, and the time window.
@@ -51,7 +54,7 @@ function slip(r: Row): string {
   const evidence = r.quote
     ? `<dl class="ev">
         <dt>Heard</dt><dd class="quote">&ldquo;${esc(r.quote)}&rdquo;</dd>
-        <dt>Speaker</dt><dd>${esc(r.speaker ?? "unknown")}</dd>
+        <dt>Speaker</dt><dd>${esc(speakerCopy(r))}</dd>
         <dt>When</dt><dd>${esc(time(r.spokenAt))}</dd>
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>`
@@ -94,7 +97,7 @@ body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mon
 main{max-width:560px;margin:0 auto}
 h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
-.tape{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
+.tape{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
 .tape div{padding:12px;background:var(--desk-2);min-width:0}
 .tape b{display:block;font:600 20px/1.2 var(--font-mono);font-variant-numeric:tabular-nums}
 .tape span{display:block;color:var(--chalk-soft);font-size:12px;overflow-wrap:anywhere}
@@ -131,7 +134,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
-@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.tape div:last-child:nth-child(odd){grid-column:1/-1}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
+@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
 </style></head>
 <body><main>
 <h1>Receipts</h1>
@@ -140,6 +143,7 @@ code{color:var(--chalk)}
 <div><b>${rows.length}</b><span>facts checked</span></div>
 <div><b>${n("supported")}</b><span>receipt found</span></div>
 <div><b>${n("likely-tv")}</b><span>likely TV</span></div>
+<div><b>${n("unattributed")}</b><span>not tied to you</span></div>
 <div><b>${n("no-evidence")}</b><span>no evidence found</span></div>
 <div><b>${n("duplicate") + n("contradicts")}</b><span>duplicate or conflict</span></div>
 </section>

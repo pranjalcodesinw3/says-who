@@ -28,7 +28,7 @@ export function openLedger(path: string) {
       verdict TEXT NOT NULL, tv_score REAL NOT NULL, support_score REAL NOT NULL,
       quote TEXT, speaker TEXT, spoken_at INTEGER, conversation_id INTEGER, reasons TEXT NOT NULL, searched INTEGER NOT NULL,
       todo_id INTEGER, decision TEXT, decided_at INTEGER, verified_gone INTEGER, created_at INTEGER NOT NULL,
-      related_fact_id INTEGER, related_fact_text TEXT
+      related_fact_id INTEGER, related_fact_text TEXT, attribution TEXT, scope TEXT
     );
     CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   `);
@@ -36,6 +36,7 @@ export function openLedger(path: string) {
   const have = new Set(db.prepare("PRAGMA table_info(receipts)").all().map((c) => String(c.name)));
   if (!have.has("related_fact_id")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_id INTEGER");
   if (!have.has("related_fact_text")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_text TEXT");
+  if (!have.has("attribution")) db.exec("ALTER TABLE receipts ADD COLUMN attribution TEXT");
   if (!have.has("scope")) db.exec("ALTER TABLE receipts ADD COLUMN scope TEXT");
   // "unsupported" was renamed: a bounded search that found nothing is no evidence, not proof of absence
   db.exec("UPDATE receipts SET verdict = 'no-evidence' WHERE verdict = 'unsupported'");
@@ -45,6 +46,7 @@ export function openLedger(path: string) {
     factCreatedAt: r.fact_created_at === null ? null : Number(r.fact_created_at),
     verdict: r.verdict as Verdict, tvScore: Number(r.tv_score), supportScore: Number(r.support_score),
     quote: (r.quote as string | null) ?? null, speaker: (r.speaker as string | null) ?? null,
+    attribution: (r.attribution as Receipt["attribution"] | null | undefined) ?? null,
     spokenAt: r.spoken_at === null ? null : Number(r.spoken_at),
     conversationId: r.conversation_id === null ? null : Number(r.conversation_id),
     reasons: JSON.parse(String(r.reasons)) as string[], searched: Number(r.searched),
@@ -71,9 +73,9 @@ export function openLedger(path: string) {
     insert(r: Receipt): boolean {
       const res = db.prepare(
         `INSERT OR IGNORE INTO receipts (fact_id, fact_text, fact_created_at, verdict, tv_score, support_score, quote, speaker,
-          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope, attribution) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       ).run(r.factId, r.factText, r.factCreatedAt, r.verdict, r.tvScore, r.supportScore, r.quote, r.speaker, r.spokenAt,
-        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope));
+        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope), r.attribution);
       return Number(res.changes) === 1;
     },
     setTodo(factId: number, todoId: number) {

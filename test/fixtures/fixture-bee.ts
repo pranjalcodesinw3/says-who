@@ -115,3 +115,44 @@ export const FACT_OAT_DUP: Fact = { id: 5, text: "Likes oat milk", tags: [], cre
 export const FACT_OAT_CONFIRMED_NEG: Fact = { id: 6, text: "Does not like oat milk", tags: [], created_at: NOW, confirmed: true };
 export const FACT_ALMOND: Fact = { id: 7, text: "Likes almond milk", tags: [], created_at: NOW, confirmed: false };
 export const FACT_NO_CAR_CONFIRMED: Fact = { id: 8, text: "Does not drive a car", tags: [], created_at: NOW, confirmed: true };
+
+// FIXTURE: attribution cases. The wearer talks about someone else, with every keyword of the fact present.
+export const FACT_VEGAN: Fact = { id: 20, text: "Dave is vegan", tags: [], created_at: NOW, confirmed: false };
+export const BROTHER_CONVO: Conversation = {
+  id: 301, start_time: NOW - 5_400_000, end_time: NOW - 5_000_000,
+  utterances: [
+    u(40, "Unknown", "My brother is vegan, he cooks everything from scratch and never buys anything frozen.", 0),
+    u(41, "Priya", "Does he eat eggs at all or is it strictly plants only for him?", 1),
+    u(42, "Unknown", "Strictly plants, it took the whole family a while to get used to it at dinner.", 2),
+  ],
+};
+// FIXTURE: the wearer says it about themselves later in the same conversation.
+export const BROTHER_THEN_SELF_CONVO: Conversation = {
+  ...BROTHER_CONVO, id: 302,
+  utterances: [...BROTHER_CONVO.utterances, u(43, "Unknown", "Honestly I'm vegan too since last spring, he talked me into it.", 3)],
+};
+// FIXTURE: a line from an unlabelled speaker that names no subject at all.
+export const NO_SUBJECT_CONVO: Conversation = {
+  id: 303, start_time: NOW - 5_400_000, end_time: NOW - 5_000_000,
+  utterances: [u(50, "Unknown", "Vegan food is the best thing at that market, honestly.", 0), u(51, "Priya", "I never noticed, I always get the noodles.", 1)],
+};
+// FIXTURE: a named participant says it about themselves in a quiet, non-TV conversation.
+export const PRIYA_VEGAN_CONVO: Conversation = {
+  id: 304, start_time: NOW - 5_400_000, end_time: NOW - 5_000_000,
+  utterances: [u(60, "Priya", "I'm vegan, so I will bring my own dessert on Saturday.", 0), u(61, "Unknown", "Fine by me, I will make a salad.", 1)],
+};
+// FIXTURE: the wearer's own true sentence inside a conversation that scores as TV from conversation-level cues alone.
+export const WEARER_IN_TV_CONVO: Conversation = {
+  ...TV_CONVO, id: 305,
+  utterances: [...TV_CONVO.utterances, u(70, "Unknown", "I switched to oat milk this week and my stomach is much happier about it.", 17)],
+};
+// FIXTURE: identical conversation, but the oat-milk line is spoken by a labelled non-wearer voice.
+export const TV_OAT_CONVO: Conversation = {
+  ...WEARER_IN_TV_CONVO, id: 306,
+  utterances: WEARER_IN_TV_CONVO.utterances.map((x) => (x.id === 70 ? { ...x, speaker: "Speaker 2" } : x)),
+};
+// FIXTURE: a TV room where Bee labelled the lawyer line "Unknown". The room looks like TV, but nothing on the line itself says who spoke.
+export const TV_UNKNOWN_LABEL_CONVO: Conversation = {
+  ...TV_CONVO, id: 307,
+  utterances: TV_CONVO.utterances.map((x) => (x.id === 202 ? { ...x, speaker: "Unknown" } : x)),
+};

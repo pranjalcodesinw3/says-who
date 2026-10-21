@@ -24,6 +24,8 @@ export function todoText(r: Receipt): string {
   const why =
     r.verdict === "likely-tv"
       ? `Heard${when ? ` ${when}` : ""}, TV-like${r.quote ? `: "${clip(r.quote, 60)}"` : ""}`
+      : r.verdict === "unattributed"
+        ? `A matching line is not tied to you${r.quote ? `: "${clip(r.quote, 60)}"` : ""}`
       : r.verdict === "duplicate"
         ? `Bee already has this as fact ${r.relatedFactId}`
         : r.verdict === "contradicts"

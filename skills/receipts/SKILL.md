@@ -1,6 +1,6 @@
 ---
 name: receipts
-description: "Explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV signal score (a heuristic, not a probability), the search scope and a verdict (supported, likely-tv, no-evidence, duplicate, contradicts). Requires the bee-cli to be logged in."
+description: "Explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV signal score (a heuristic, not a probability), the search scope and a verdict (supported, likely-tv, unattributed, no-evidence, duplicate, contradicts). Requires the bee-cli to be logged in."
 ---
 
 # Receipts
@@ -30,7 +30,8 @@ npm run watch                   # same, looping, plus the review page on http://
 | `verdict` | one of the verdicts below |
 | `factId`, `factText` | the Bee fact this receipt is about |
 | `quote` | at most 25 words, verbatim from an utterance. Never from a summary |
-| `speaker` | the label Bee gave that utterance. The wearer usually arrives as `Unknown` |
+| `speaker` | the label Bee gave that utterance. `Unknown` means Bee did not name the speaker: it is not evidence for or against the wearer |
+| `attribution` | who the quoted line is about: `self` (tied to the wearer by a wearer label or first-person wording), `other` (names someone else, or a non-wearer spoke it), `unclear` (nothing ties it to anyone) |
 | `spokenAt` | epoch milliseconds of the utterance (conversation start when the utterance has no time) |
 | `conversationId` | the conversation holding the quote. `bee conversations get <id>` shows the full context |
 | `tvScore` | 0 to 1 heuristic signal: a sum of cues (speaker, other voices, cadence, show cues, third person), not a probability. 0.5 or more makes the verdict `likely-tv` |
@@ -44,6 +45,7 @@ npm run watch                   # same, looping, plus the review page on http://
 |---|---|
 | `supported` | "You said it: <quote>, at <time>." |
 | `likely-tv` | "Bee heard this at <time> in a conversation that looks like TV: <quote>, spoken by <speaker>. <reasons>." |
+| `unattributed` | "A line matches the words, but nothing ties it to you: <quote>. <attribution reason>." It may be about someone else or from an unnamed speaker. |
 | `no-evidence` | "I found no evidence for this in the <searched> conversations I searched (<scope.methods>, <scope.candidates> times)." Never say nobody said it: the search is bounded, and the source may have been deleted (Bee drops recordings under about 50 words). |
 | `duplicate` | "Bee already has this as fact <relatedFactId>." |
 | `contradicts` | "This opposes the fact you confirmed: <relatedFactText>." |

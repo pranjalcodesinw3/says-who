@@ -71,18 +71,55 @@ function bestClause(text: string, need: string[]): string {
   return best;
 }
 
-export type Support = { score: number; index: number; matched: string[] };
+// Who a matching line is about. Matching words is not enough: "my brother is vegan" shares every keyword of "is vegan".
+// "Unknown" is a label Bee also puts on people who are not the wearer, so it proves nothing by itself.
+export type SpeakerKind = "wearer" | "unknown" | "other";
+export type Attribution = { kind: "self" | "other" | "unclear"; why: string };
+
+const RELATIONS = "brother|sister|wife|husband|friend|mom|mum|mother|dad|father|boss|colleague|coworker|cousin|son|daughter|partner|neighbou?r|roommate|uncle|aunt|girlfriend|boyfriend|kid|sibling|manager|teacher|grandma|grandpa|grandmother|grandfather|family";
+const RELATION_RE = new RegExp(`\\b(?:my|our|your)\\s+(?:[a-z]+\\s+)?(?:${RELATIONS})s?\\b`, "i");
+const THIRD_RE = /\b(he|she|they|he's|she's|they're|his|her|hers|their|theirs|him|them)\b/i;
+const FIRST_RE = /\b(i|i'm|i've|i'll|i'd|me|myself|my|mine|we|we're|we've|us|our)\b/i;
+
+// Subject of one clause, from the text alone: a relation ("my brother"), a pronoun for someone else, a named participant, or first person.
+export function subjectOf(clause: string, participantNames: Set<string>): { kind: "self" | "other" | "none"; cue: string | null } {
+  const rel = RELATION_RE.exec(clause);
+  if (rel) return { kind: "other", cue: rel[0].toLowerCase() };
+  const third = THIRD_RE.exec(clause);
+  if (third) return { kind: "other", cue: third[0].toLowerCase() };
+  const named = words(clause).find((w) => participantNames.has(w.toLowerCase()));
+  if (named) return { kind: "other", cue: named };
+  const first = FIRST_RE.exec(clause);
+  if (first) return { kind: "self", cue: first[0] };
+  return { kind: "none", cue: null };
+}
+
+export function attribute(subject: ReturnType<typeof subjectOf>, speaker: string, kind: SpeakerKind): Attribution {
+  if (subject.kind === "other") return { kind: "other", why: `the line is about someone else ("${subject.cue}")` };
+  if (kind === "other") return { kind: "other", why: `the line was spoken by "${speaker}", not the wearer` };
+  if (kind === "wearer") return { kind: "self", why: `spoken by "${speaker}", a configured wearer label` };
+  if (subject.kind === "self") return { kind: "self", why: `first person ("${subject.cue}") in a line from an unlabelled speaker` };
+  return { kind: "unclear", why: "speaker label is Unknown and the line names no subject, so nothing ties it to the wearer" };
+}
+
+export type Support = { score: number; index: number; matched: string[]; attribution: Attribution };
 
 export const SUPPORT_RATIO = 0.6;
 export const NEAR_MISS_RATIO = 0.33;
 
 // Best window (one utterance, or two adjacent) covering the fact's content tokens.
 // Supported needs >= 60% of tokens and at least 2 distinct tokens (a single-token fact needs a token of 5+ letters).
-export function findSupport(factText: string, utterances: Utterance[], ownerNames: string[] = [], loose = false): Support | null {
+// speakerKind maps a Bee speaker label to wearer / unknown / other. Without it every label is unknown, so only the wording can attribute a line.
+// Among windows that cover the fact, one attributed to the wearer beats a better lexical match about someone else.
+export function findSupport(factText: string, utterances: Utterance[], ownerNames: string[] = [], loose = false, speakerKind: (label: string) => SpeakerKind = () => "unknown"): Support | null {
   const need = contentTokens(factText, ownerNames);
   if (need.length === 0) return null;
   const factNegative = isNegative(factText);
   const sets = utterances.map((u) => new Set(words(u.text).map(stem)));
+  const participantNames = new Set(
+    utterances.filter((u) => speakerKind(u.speaker) === "other" && !/^speaker\s*\d*$/i.test(u.speaker.trim())).flatMap((u) => words(u.speaker)).map((w) => w.toLowerCase()),
+  );
+  const rank = (a: Support) => (a.attribution.kind === "self" ? 1 : 0) * 10 + a.score;
   let best: Support | null = null;
   for (let i = 0; i < utterances.length; i++) {
     for (const span of [1, 2]) {
@@ -104,7 +141,9 @@ export function findSupport(factText: string, utterances: Utterance[], ownerName
         const c = hit.filter((t) => sets[i + k]!.has(t)).length;
         if (c > most) { most = c; at = i + k; }
       }
-      if (!best || ratio > best.score) best = { score: ratio, index: at, matched: hit };
+      const attribution = attribute(subjectOf(bestClause(window, hit), participantNames), utterances[at]!.speaker, speakerKind(utterances[at]!.speaker));
+      const cand: Support = { score: ratio, index: at, matched: hit, attribution };
+      if (!best || rank(cand) > rank(best)) best = cand;
     }
   }
   return best;
