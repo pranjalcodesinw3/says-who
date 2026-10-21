@@ -63,5 +63,6 @@ mutate "receipt of the day picks the least doubtful receipt" src/page.ts 's/URGE
 mutate "demo buttons write to the real ledger" src/server.ts 's/d = await \(demo \?\?= buildDemo\(\)\);/d = d0;/'
 mutate "restart forgets receipts that never got a to-do" src/watch.ts 's/\n    await resumePending\(d\);//'
 mutate "restart loses the saved cursor" src/ledger.ts 's/const r = db\.prepare\("SELECT v FROM kv WHERE k = .cursor."\)\.get\(\);\n      return r \? String\(r\.v\) : undefined;/return undefined;/'
+mutate "record script starts without a Bee login" scripts/record-demo.sh 's/if ! "\$BEE" me --json >\/dev\/null 2>&1; then/if false; then/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

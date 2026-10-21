@@ -38,7 +38,7 @@ npm run demo-day                 # the live procedure: TV clip near the Watch, r
 
 The review page opens with the receipt of the day: the most doubtful fact Bee wrote, the exact line behind it, Bee's own speaker label beside what Receipts reads from the words, the time, the verdict and one action. `/demo` shows a supported fact, a heard-on-TV fact and a no-evidence fact side by side, with working Forget and Confirm buttons that read back from the sample account.
 
-`scripts/demo-day.md` is the demo-day procedure. `scripts/forced-fault.sh` drives it with the real `bee` CLI: it starts once `bee me` confirms the login, waits for Bee itself to write a fact after the clip, prints the receipt, reads the wrist reminder back from Bee, waits for the tick and checks that `bee facts get` answers not found.
+`scripts/demo-day.md` is the demo-day procedure and `scripts/record-demo.sh` runs it end to end with the screen recording and the logs filed under `recordings/`. `scripts/forced-fault.sh` drives it with the real `bee` CLI: it starts once `bee me` confirms the login, waits for Bee itself to write a fact after the clip, prints the receipt, reads the wrist reminder back from Bee, waits for the tick and checks that `bee facts get` answers not found.
 
 Environment: `RECEIPTS_DB` (default `.receipts/ledger.db`), `RECEIPTS_PORT` (8790), `RECEIPTS_INTERVAL_S` (60), `RECEIPTS_WEARER_SPEAKERS` (speaker labels that mean the wearer, default `you,me,user,owner,wearer`; add `unknown` only if your device labels you so), `RECEIPTS_SHOW_NAMES` (extra show cues, comma separated), `BEE_BIN` (path to a different `bee`).
 

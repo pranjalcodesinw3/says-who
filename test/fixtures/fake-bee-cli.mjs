@@ -4,7 +4,7 @@
 // FAKE_BEE_ARRIVE_ON_LIST=N -> the state's `arrival` fact appears on the Nth `facts list --unconfirmed` call (stands in for Bee writing a fact after a clip).
 // FAKE_BEE_TICK_AFTER_GETS=M -> a to-do reads as completed from its Mth `todos get` (stands in for a tick on the Watch).
 // FAKE_BEE_LOGIN=0 -> logged out. Without FAKE_BEE_STATE, FAKE_BEE_FACTS=N makes `facts list` return N invented facts.
-import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, rmdirSync } from "node:fs";
 
 const a = process.argv.slice(2);
 const say = (o) => console.log(JSON.stringify(o));
@@ -22,6 +22,11 @@ if (!process.env.FAKE_BEE_STATE) {
 }
 
 const path = process.env.FAKE_BEE_STATE;
+// Several processes (the watch loop and the driver script) share one state file: serialise each command behind a lock directory.
+for (let i = 0; ; i++) {
+  try { mkdirSync(`${path}.lock`); break; } catch { if (i > 400) fail("fixture: state lock timeout"); await new Promise((r) => setTimeout(r, 10)); }
+}
+process.on("exit", () => { try { rmdirSync(`${path}.lock`); } catch {} });
 const st = JSON.parse(readFileSync(path, "utf8"));
 appendFileSync(`${path}.argv`, `${a.join(" ")}\n`);
 const save = () => writeFileSync(path, JSON.stringify(st));

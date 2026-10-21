@@ -27,6 +27,14 @@ bash scripts/forced-fault.sh
 
 It reads the pending facts as a baseline, tells the room to play the clip, then polls Bee until a fact appears that was not in the baseline. The wait is 10 minutes by default (`FAULT_WAIT_FACT_S`). Bee writes facts after it finishes processing a conversation, so the wait is Bee's, not the script's.
 
+## One command for the recorded run
+
+```bash
+bash scripts/record-demo.sh
+```
+
+It starts the watch loop with the review page, opens the page in the `deepsurge` browser profile, records the screen (`RECORD_SECONDS`, default 900) and runs `scripts/forced-fault.sh`. Everything lands in `recordings/<stamp>/`: `screen.mov`, `run.log`, `watch.log`, `timings.txt` (the elapsed marks) and `receipt-<id>.json` (the stored receipt). It starts only after `bee me` confirms the login. `RECORD_SCREEN=0` files the logs without the screen recording.
+
 ## The beats
 
 1. Baseline printed: "N pending facts before the clip". Play the clip now.
