@@ -55,5 +55,8 @@ mutate "relations and pronouns no longer name someone else" src/match.ts 's/(exp
 mutate "wrist prompt drops the say-or-hear question" src/watch.ts 's/const ask = "Did you say it, or hear it\?";/const ask = "Looks like TV.";/'
 mutate "a decision does not bump the change counter" src/ledger.ts 's/verified_gone = \?, rev = \$\{NEXT_REV\} WHERE/verified_gone = ? WHERE/'
 mutate "live feed replays the whole ledger on connect" src/server.ts 's/let last = Number\.isFinite\(resumed\)[^\n]*;/let last = 0;/'
+mutate "demo-day script runs without a Bee login" scripts/forced-fault.sh 's/if ! me=\$\(/if false \&\& me=\$(/'
+mutate "demo-day script accepts an unticked reminder" scripts/forced-fault.sh 's/\[ "\$ticked" = "1" \] \|\| die 6[^\n]*\n//'
+mutate "demo-day script skips the gone read-back" scripts/forced-fault.sh 's/if out=\$\("\$BEE" facts get "\$new_id" --json 2>&1\); then/if false; then/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

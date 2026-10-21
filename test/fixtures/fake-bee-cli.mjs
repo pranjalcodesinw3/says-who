@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // FIXTURE, NOT BEE. A stand-in `bee` binary so tests can drive the real createBeeClient -> subprocess -> JSON path.
 // Output shapes follow bee-cli 0.8.0 source (see NOTES.md). Invented data lives in the state file named by FAKE_BEE_STATE.
+// FAKE_BEE_ARRIVE_ON_LIST=N -> the state's `arrival` fact appears on the Nth `facts list --unconfirmed` call (stands in for Bee writing a fact after a clip).
+// FAKE_BEE_TICK_AFTER_GETS=M -> a to-do reads as completed from its Mth `todos get` (stands in for a tick on the Watch).
 // FAKE_BEE_LOGIN=0 -> logged out. Without FAKE_BEE_STATE, FAKE_BEE_FACTS=N makes `facts list` return N invented facts.
 import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
 
@@ -27,8 +29,14 @@ const find = (list, id) => list.find((x) => x.id === Number(id)) ?? fail("Reques
 const [c, s] = a;
 if (c === "me") say({ id: 1, first_name: st.owner.first, last_name: st.owner.last });
 else if (c === "changed") say({ meta: { cursor: flag("--cursor") ?? null, next_cursor: `fx-${st.calls = (st.calls ?? 0) + 1}`, since: 1, until: 2, updated: true, timezone: "UTC" }, facts: st.facts, todos: [], dailies: [], conversations: [], journals: [] }), save();
-else if (c === "facts" && s === "list") say({ facts: st.facts.filter((f) => f.confirmed === !a.includes("--unconfirmed")), next_cursor: null, timezone: "UTC" });
-else if (c === "facts" && s === "get") say(find(st.facts, a[2]));
+else if (c === "facts" && s === "list") {
+  if (a.includes("--unconfirmed")) {
+    st.unconfirmedLists = (st.unconfirmedLists ?? 0) + 1;
+    if (st.arrival && st.unconfirmedLists === Number(process.env.FAKE_BEE_ARRIVE_ON_LIST ?? 0)) st.facts.push(st.arrival);
+    save();
+  }
+  say({ facts: st.facts.filter((f) => f.confirmed === !a.includes("--unconfirmed")), next_cursor: null, timezone: "UTC" });
+} else if (c === "facts" && s === "get") say(find(st.facts, a[2]));
 else if (c === "facts" && s === "delete") { find(st.facts, a[2]); st.facts = st.facts.filter((f) => f.id !== Number(a[2])); save(); say({ deleted: true }); }
 else if (c === "facts" && s === "confirm") { find(st.facts, a[2]).confirmed = true; save(); say(find(st.facts, a[2])); }
 else if (c === "search") say({ results: st.conversations.map((x) => ({ id: x.id })), total: st.conversations.length });
@@ -37,6 +45,12 @@ else if (c === "conversations" && s === "get") { const x = find(st.conversations
 else if (c === "todos" && s === "create") {
   const t = { id: (st.nextTodo = (st.nextTodo ?? 900) + 1), text: flag("--text"), alarm_at: Date.parse(flag("--alarm-at")), completed: false, created_at: 1_800_000_000 };
   st.todos.push(t); save(); say({ todo: t, timezone: "UTC" });
-} else if (c === "todos" && s === "get") say({ todo: find(st.todos, a[2]), timezone: "UTC" });
+} else if (c === "todos" && s === "get") {
+  const t = find(st.todos, a[2]);
+  t.gets = (t.gets ?? 0) + 1;
+  if (process.env.FAKE_BEE_TICK_AFTER_GETS && t.gets >= Number(process.env.FAKE_BEE_TICK_AFTER_GETS)) t.completed = true;
+  save();
+  say({ todo: t, timezone: "UTC" });
+}
 else if (c === "todos" && s === "list") say({ todos: st.todos, next_cursor: null, timezone: "UTC" });
 else fail(`fixture: unsupported command ${a.join(" ")}`);

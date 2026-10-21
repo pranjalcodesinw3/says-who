@@ -41,7 +41,7 @@ export function openLedger(path: string) {
   if (!have.has("attribution")) db.exec("ALTER TABLE receipts ADD COLUMN attribution TEXT");
   if (!have.has("rev")) db.exec("ALTER TABLE receipts ADD COLUMN rev INTEGER NOT NULL DEFAULT 0");
   if (!have.has("scope")) db.exec("ALTER TABLE receipts ADD COLUMN scope TEXT");
-  // "unsupported" was renamed: a bounded search that found nothing is no evidence, not proof of absence
+  // "unsupported" was renamed: a search that found nothing is no evidence, which is a different claim from "nobody said it"
   db.exec("UPDATE receipts SET verdict = 'no-evidence' WHERE verdict = 'unsupported'");
 
   const toRow = (r: Record<string, unknown>): Row => ({

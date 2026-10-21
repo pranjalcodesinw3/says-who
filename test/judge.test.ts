@@ -73,7 +73,7 @@ test("judge is off by default and fails loudly on a half-set environment", () =>
   assert.equal(judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", AWS_BEARER_TOKEN_BEDROCK: "x" })?.name, "bedrock");
 });
 
-test("an unreachable endpoint rejects, so refine keeps the heuristic verdict", async () => {
+test("an unreachable endpoint rejects, so refine keeps the word-match verdict", async () => {
   const judge = bedrockJudge({ bearer: "x", region: "invalid-region-that-does-not-resolve" });
   await assert.rejects(judge.decide(probe));
 });
@@ -116,7 +116,7 @@ test("MUST-FAIL near-miss: a judge that says no, or errors, cannot create a rece
     const r = await refine(JAZZ_FACT, [PARAPHRASE], ctx, assess(JAZZ_FACT, [PARAPHRASE], ctx));
     assert.equal(r.verdict, "no-evidence");
     assert.equal(r.quote, null);
-    assert.match(r.reasons[0]!, answer === false ? /does not support/ : /unavailable \(Error\), heuristic verdict kept/);
+    assert.match(r.reasons[0]!, answer === false ? /does not support/ : /unavailable \(Error\), word-match verdict kept/);
   }
 });
 

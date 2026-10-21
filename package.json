@@ -20,6 +20,8 @@
     "watch": "node --disable-warning=ExperimentalWarning src/cli.ts watch --serve",
     "review": "node --disable-warning=ExperimentalWarning src/cli.ts review",
     "report": "node --disable-warning=ExperimentalWarning src/cli.ts report",
+    "receipt": "node --disable-warning=ExperimentalWarning src/cli.ts receipt",
+    "demo-day": "bash scripts/forced-fault.sh",
     "why": "node --disable-warning=ExperimentalWarning src/cli.ts why",
     "viewport-check": "node --disable-warning=ExperimentalWarning scripts/viewport-check.ts"
   },

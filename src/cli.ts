@@ -14,7 +14,8 @@ const USAGE = `receipts <command>
   watch [--serve]   loop every RECEIPTS_INTERVAL_S (60) seconds, wake on todo-updated; --serve also starts the review page
   review            review page only on http://127.0.0.1:$RECEIPTS_PORT (8790)
   why "<fact text>" print the receipt for the stored fact that best matches the text
-  report            fact provenance counts and the wearer's decisions from the ledger`;
+  report            fact provenance counts and the wearer's decisions from the ledger
+  receipt <factId>  the stored receipt for one fact as JSON (no Bee login needed)`;
 
 const dbPath = process.env.RECEIPTS_DB ?? ".receipts/ledger.db";
 const port = Number(process.env.RECEIPTS_PORT ?? 8790);
@@ -100,6 +101,17 @@ async function main() {
     case "report":
       report();
       break;
+    case "receipt": {
+      if (!rest[0]) throw new Error("usage: receipts receipt <factId>");
+      const row = openLedger(dbPath).get(Number(rest[0]));
+      if (!row) {
+        console.error(`no receipt for fact ${rest[0]}`);
+        process.exitCode = 1;
+        break;
+      }
+      console.log(JSON.stringify(row, null, 2));
+      break;
+    }
     default:
       console.log(USAGE);
       process.exitCode = cmd ? 2 : 0;

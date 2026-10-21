@@ -29,7 +29,7 @@ test("review page lists every fact with its receipt, and the buttons write throu
   try {
     const page = await http(port, "GET", "/");
     assert.equal(page.status, 200);
-    for (const needle of ["Prefers oat milk", "Dave is a criminal lawyer", "I hold a commercial pilot licence", "I switched to oat milk this week", "Likely TV", "No evidence found", "Searched 3 conversations", "not a probability", "Receipt found", "facts checked"]) {
+    for (const needle of ["Prefers oat milk", "Dave is a criminal lawyer", "I hold a commercial pilot licence", "I switched to oat milk this week", "Likely TV", "No evidence found", "Searched 3 conversations", "where it looked", "Receipt found", "facts checked"]) {
       assert.ok(page.body.includes(needle), `page is missing "${needle}"`);
     }
     assert.ok(!page.body.includes("\u2014"), "no em dashes in page copy");
@@ -92,32 +92,34 @@ test("live feed: a fact that arrives through the changed cursor shows up with it
   await tick(d);
   const server = await startServer(d, 0, { feedMs: 25 });
   const port = (server.address() as { port: number }).port;
-  const page = await http(port, "GET", "/");
-  const rev = Number(/data-rev="(\d+)"/.exec(page.body)![1]);
-  assert.ok(rev > 0 && page.body.includes('id="feed"') && page.body.includes("new EventSource"));
-  const feed = openFeed(port, `/api/feed?after=${rev}`);
+  let feed: ReturnType<typeof openFeed> | undefined;
   try {
+    const page = await http(port, "GET", "/");
+    const rev = Number(/data-rev="(\d+)"/.exec(page.body)?.[1]);
+    assert.ok(rev > 0 && page.body.includes('id="feed"') && page.body.includes("new EventSource"), "page carries the revision and the feed client");
+    feed = openFeed(port, `/api/feed?after=${rev}`);
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(feed.events.length, 0, "rows from before the page loaded are not replayed");
+    const live = feed;
 
     bee.conversations.set(BROTHER_CONVO.id, BROTHER_CONVO);
     bee.facts.set(FACT_VEGAN.id, { ...FACT_VEGAN });
     bee.changedFacts = [FACT_VEGAN.id];
     await tick(d);
-    await feed.waitFor((e) => e.some((x) => x.factId === 20 && /On your wrist as to-do/.test(x.slip)));
-    const arrived = feed.events.find((x) => x.factId === 20)!;
+    await live.waitFor((e) => e.some((x) => x.factId === 20 && /On your wrist as to-do/.test(x.slip)));
+    const arrived = live.events.find((x) => x.factId === 20)!;
     assert.equal(arrived.verdict, "unattributed");
     assert.match(arrived.slip, /My brother is vegan/);
     assert.match(arrived.slip, /Not tied to you/);
     assert.match(arrived.tape, /<b>2<\/b><span>facts checked/);
-    assert.ok(!feed.events.some((x) => x.factId === 1), "the old fact did not replay");
+    assert.ok(!live.events.some((x) => x.factId === 1), "the old fact did not replay");
 
     const todo = [...bee.todos.values()].find((t) => t.text.includes("[rcpt:20]"))!;
     bee.tick(todo.id, { completed: true });
     await reconcile(d);
-    await feed.waitFor((e) => e.some((x) => x.factId === 20 && x.decision === "forgotten" && /Forgotten\. Bee no longer holds this fact/.test(x.slip)));
+    await live.waitFor((e) => e.some((x) => x.factId === 20 && x.decision === "forgotten" && /Forgotten\. Bee no longer holds this fact/.test(x.slip)));
   } finally {
-    feed.close();
+    feed?.close();
     server.close();
   }
 });
@@ -133,6 +135,9 @@ test("live feed resumes from Last-Event-ID after a dropped connection", async ()
   try {
     await new Promise((r) => setTimeout(r, 150));
     assert.equal(feed.events.length, 0);
+  } catch (e) {
+    server.close();
+    throw e;
   } finally {
     feed.close();
   }

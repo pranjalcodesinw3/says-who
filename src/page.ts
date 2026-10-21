@@ -58,7 +58,7 @@ export function slip(r: Row): string {
         <dt>When</dt><dd>${esc(time(r.spokenAt))}</dd>
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>`
-    : `<p class="none">No evidence found in ${r.searched} searched conversation${r.searched === 1 ? "" : "s"}. That is a bounded search, not proof nobody said it.</p>`;
+    : `<p class="none">No evidence found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
   const reasons = r.reasons.length ? `<ul class="why">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
   return `<article class="slip ${stamp.cls}" id="fact-${r.factId}">
     <header><span>FACT ${r.factId}</span><span>${esc(time(r.factCreatedAt))}</span></header>
@@ -69,7 +69,6 @@ export function slip(r: Row): string {
     ${evidence}
     ${scope(r)}
     <div class="tv"><span>TV signal</span><meter min="0" max="1" low="0.3" high="0.5" optimum="0" value="${r.tvScore}"></meter><span class="num">${r.tvScore.toFixed(2)}</span></div>
-    <p class="fine">A heuristic count of cues, not a probability.</p>
     ${reasons}
     ${status(r)}
     ${buttons}

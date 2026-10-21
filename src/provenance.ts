@@ -127,11 +127,11 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
       return { ...r, reasons: [note, ...r.reasons] };
     }
     if (receipt.verdict !== "no-evidence" && !d.supports) {
-      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
+      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `word match was weak (${receipt.supportScore})`] };
     }
     return { ...receipt, reasons: [note, ...receipt.reasons] };
   } catch (e) {
-    return { ...receipt, reasons: [`judge ${judge.name} unavailable (${e instanceof Error ? e.name : "error"}), heuristic verdict kept`, ...receipt.reasons] };
+    return { ...receipt, reasons: [`judge ${judge.name} unavailable (${e instanceof Error ? e.name : "error"}), word-match verdict kept`, ...receipt.reasons] };
   }
 }
 
