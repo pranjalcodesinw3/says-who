@@ -22,8 +22,17 @@ function status(r: Row): string {
   return "";
 }
 
-// "Unknown" is Bee's label for anyone it could not name. It is not the wearer and not a stranger, so the copy says so.
-const speakerCopy = (r: Row) => (!r.speaker || r.speaker.toLowerCase() === "unknown" ? "Unknown (Bee did not name the speaker)" : r.speaker);
+// Two readings of the same line, side by side. Bee's own speaker label is shown as Bee gave it; Receipts adds what the words and the label support.
+// "Unknown" is Bee's label for anyone it could not name: not the wearer and not a stranger, so the copy says so.
+const READS = { self: "Tied to you", other: "About someone else", unclear: "Not tied to anyone" } as const;
+function attribution(r: Row): string {
+  const unknown = !r.speaker || r.speaker.toLowerCase() === "unknown";
+  const read = r.attribution ? READS[r.attribution] : "No line to read";
+  return `<div class="attr">
+        <div><span>Bee's speaker label</span><b>${esc(unknown ? "Unknown" : r.speaker!)}</b><small>${unknown ? "Bee did not name the speaker" : "As Bee labelled the line"}</small></div>
+        <div class="mine ${r.attribution ?? ""}"><span>Receipts reads it as</span><b>${read}</b><small>${esc(r.attributionWhy ?? "")}</small></div>
+      </div>`;
+}
 const shortTime = (ms: number) => new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 // The search scope: which conversations were read, when they started, how they were found, and the time window.
@@ -54,10 +63,10 @@ export function slip(r: Row): string {
   const evidence = r.quote
     ? `<dl class="ev">
         <dt>Heard</dt><dd class="quote">&ldquo;${esc(r.quote)}&rdquo;</dd>
-        <dt>Speaker</dt><dd>${esc(speakerCopy(r))}</dd>
         <dt>When</dt><dd>${esc(time(r.spokenAt))}</dd>
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
-      </dl>`
+      </dl>
+      ${attribution(r)}`
     : `<p class="none">No evidence found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
   // the "no evidence" sentence is already the slip's headline, so the reason list keeps only what adds to it
   const shown = r.verdict === "no-evidence" ? r.reasons.filter((x) => !/^no evidence found/.test(x)) : r.reasons;
@@ -126,6 +135,12 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .ev dt{color:var(--ink-soft);font-size:13px;padding-top:1px}
 .ev dd{margin:0;overflow-wrap:anywhere}
 .quote{font-weight:500}
+.attr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--paper-edge);border:1px solid var(--paper-edge);margin:12px 0 0}
+.attr>div{background:var(--paper);padding:8px 12px;min-width:0}
+.attr span{display:block;color:var(--ink-soft);font-size:13px}
+.attr b{display:block;font:600 14px/1.4 var(--font-mono)}
+.attr small{display:block;color:var(--ink-soft);font-size:13px;overflow-wrap:anywhere}
+.attr .mine.self b{color:var(--ok)}.attr .mine.other b,.attr .mine.unclear b{color:var(--warn)}
 .none{margin:0;color:var(--ink-soft)}
 .rel{margin:0 0 12px;font-weight:500}
 .tv{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:12px;align-items:center;margin:12px 0 0;font-size:13px;color:var(--ink-soft)}
@@ -162,6 +177,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}.slip.fresh{animation:none}}
+@media (max-width:520px){.attr{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0}.stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}}
 </style></head>
 <body><main data-rev="${opts.rev ?? 0}">

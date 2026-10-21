@@ -158,3 +158,22 @@ test("live feed resumes from Last-Event-ID after a dropped connection", async ()
     server.close();
   }
 });
+
+test("each slip with a quote shows Bee's own speaker label beside what Receipts reads, from the same ledger row", async () => {
+  const bee = fakeBee({ facts: [FACT_VEGAN, FACT_LAWYER], conversations: [BROTHER_CONVO, TV_CONVO] });
+  const d: Deps = { bee, ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: ["Dave"], tv: tvContext("Dave") }, alarmLeadMs: 0 };
+  await tick(d);
+  const server = await startServer(d, 0);
+  try {
+    const body = (await http((server.address() as { port: number }).port, "GET", "/")).body;
+    const slips = body.split('<article class="slip').slice(1);
+    assert.equal(slips.length, 2);
+    const vegan = slips.find((x) => x.includes('id="fact-20"'))!;
+    assert.match(vegan, /Bee's speaker label<\/span><b>Unknown<\/b><small>Bee did not name the speaker/);
+    assert.match(vegan, /Receipts reads it as<\/span><b>About someone else<\/b><small>the line is about someone else \(&quot;my brother&quot;\)/);
+    const tv = slips.find((x) => x.includes('id="fact-2"'))!;
+    assert.match(tv, /<b>Speaker 2<\/b><small>As Bee labelled the line/);
+  } finally {
+    server.close();
+  }
+});

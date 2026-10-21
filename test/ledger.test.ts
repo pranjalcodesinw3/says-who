@@ -23,7 +23,7 @@ test("an old ledger row with verdict 'unsupported' reads back as 'no-evidence' w
 test("rev is a change counter: insert, to-do link and decision each bump it, replays do not, and since() returns only newer rows", () => {
   const l = openLedger(":memory:");
   const receipt = (factId: number) => ({
-    factId, factText: `fact ${factId}`, factCreatedAt: null, verdict: "no-evidence" as const, tvScore: 0, supportScore: 0, quote: null, speaker: null, attribution: null,
+    factId, factText: `fact ${factId}`, factCreatedAt: null, verdict: "no-evidence" as const, tvScore: 0, supportScore: 0, quote: null, speaker: null, attribution: null, attributionWhy: null,
     spokenAt: null, conversationId: null, reasons: [], searched: 0, scope: { methods: [], since: null, until: null, candidates: [] }, relatedFactId: null, relatedFactText: null,
   });
   assert.equal(l.maxRev(), 0);

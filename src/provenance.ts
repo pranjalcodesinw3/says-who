@@ -22,6 +22,7 @@ export type Receipt = {
   speaker: string | null;
   // who the matching line is about: self (tied to the wearer), other (someone else or a non-wearer speaker), unclear (nothing ties it); null without a matching line
   attribution: Attribution["kind"] | null;
+  attributionWhy: string | null;
   spokenAt: number | null;
   conversationId: number | null;
   reasons: string[];
@@ -60,7 +61,7 @@ export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Rec
     const reason = contentTokens(fact.text, ctx.ownerNames).length === 0
       ? "fact has no checkable content words"
       : `no evidence found in the ${conversations.length} searched conversation(s)`;
-    return { ...base, verdict: "no-evidence", tvScore: 0, supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
+    return { ...base, verdict: "no-evidence", tvScore: 0, supportScore: 0, quote: null, speaker: null, attribution: null, attributionWhy: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
   }
   return build(base, pick.conv, pick.support, pick.tv);
 }
@@ -84,6 +85,7 @@ function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "se
     ...base,
     verdict,
     attribution: attr.kind,
+    attributionWhy: attr.why,
     tvScore: tv.score,
     supportScore: Number(support.score.toFixed(2)),
     quote: quoteOf(u.text, support.matched),
@@ -127,7 +129,7 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
       return { ...r, reasons: [note, ...r.reasons] };
     }
     if (receipt.verdict !== "no-evidence" && !d.supports) {
-      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, attribution: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `word match was weak (${receipt.supportScore})`] };
+      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, attribution: null, attributionWhy: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `word match was weak (${receipt.supportScore})`] };
     }
     return { ...receipt, reasons: [note, ...receipt.reasons] };
   } catch (e) {

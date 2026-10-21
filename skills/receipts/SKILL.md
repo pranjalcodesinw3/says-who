@@ -31,6 +31,7 @@ npm run watch                   # same, looping, plus the review page on http://
 | `factId`, `factText` | the Bee fact this receipt is about |
 | `quote` | at most 25 words, verbatim from an utterance. Never from a summary |
 | `speaker` | the label Bee gave that utterance. `Unknown` means Bee did not name the speaker: it is not evidence for or against the wearer |
+| `attributionWhy` | the sentence behind `attribution`, for example `the line is about someone else ("my brother")`. Show Bee's `speaker` label beside it: they are two readings of the same line |
 | `attribution` | who the quoted line is about: `self` (tied to the wearer by a wearer label or first-person wording), `other` (names someone else, or a non-wearer spoke it), `unclear` (nothing ties it to anyone) |
 | `spokenAt` | epoch milliseconds of the utterance (conversation start when the utterance has no time) |
 | `conversationId` | the conversation holding the quote. `bee conversations get <id>` shows the full context |

@@ -58,5 +58,6 @@ mutate "live feed replays the whole ledger on connect" src/server.ts 's/let last
 mutate "demo-day script runs without a Bee login" scripts/forced-fault.sh 's/if ! me=\$\(/if false \&\& me=\$(/'
 mutate "demo-day script accepts an unticked reminder" scripts/forced-fault.sh 's/\[ "\$ticked" = "1" \] \|\| die 6[^\n]*\n//'
 mutate "demo-day script skips the gone read-back" scripts/forced-fault.sh 's/if out=\$\("\$BEE" facts get "\$new_id" --json 2>&1\); then/if false; then/'
+mutate "page drops Receipts' reading beside Bee's speaker label" src/page.ts 's/\n      \$\{attribution\(r\)\}//'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

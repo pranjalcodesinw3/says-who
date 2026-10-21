@@ -30,7 +30,7 @@ export function openLedger(path: string) {
       verdict TEXT NOT NULL, tv_score REAL NOT NULL, support_score REAL NOT NULL,
       quote TEXT, speaker TEXT, spoken_at INTEGER, conversation_id INTEGER, reasons TEXT NOT NULL, searched INTEGER NOT NULL,
       todo_id INTEGER, decision TEXT, decided_at INTEGER, verified_gone INTEGER, created_at INTEGER NOT NULL,
-      related_fact_id INTEGER, related_fact_text TEXT, attribution TEXT, scope TEXT, rev INTEGER NOT NULL DEFAULT 0
+      related_fact_id INTEGER, related_fact_text TEXT, attribution TEXT, attribution_why TEXT, scope TEXT, rev INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   `);
@@ -39,6 +39,7 @@ export function openLedger(path: string) {
   if (!have.has("related_fact_id")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_id INTEGER");
   if (!have.has("related_fact_text")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_text TEXT");
   if (!have.has("attribution")) db.exec("ALTER TABLE receipts ADD COLUMN attribution TEXT");
+  if (!have.has("attribution_why")) db.exec("ALTER TABLE receipts ADD COLUMN attribution_why TEXT");
   if (!have.has("rev")) db.exec("ALTER TABLE receipts ADD COLUMN rev INTEGER NOT NULL DEFAULT 0");
   if (!have.has("scope")) db.exec("ALTER TABLE receipts ADD COLUMN scope TEXT");
   // "unsupported" was renamed: a search that found nothing is no evidence, which is a different claim from "nobody said it"
@@ -50,6 +51,7 @@ export function openLedger(path: string) {
     verdict: r.verdict as Verdict, tvScore: Number(r.tv_score), supportScore: Number(r.support_score),
     quote: (r.quote as string | null) ?? null, speaker: (r.speaker as string | null) ?? null,
     attribution: (r.attribution as Receipt["attribution"] | null | undefined) ?? null,
+    attributionWhy: (r.attribution_why as string | null | undefined) ?? null,
     spokenAt: r.spoken_at === null ? null : Number(r.spoken_at),
     conversationId: r.conversation_id === null ? null : Number(r.conversation_id),
     reasons: JSON.parse(String(r.reasons)) as string[], searched: Number(r.searched),
@@ -78,9 +80,9 @@ export function openLedger(path: string) {
     insert(r: Receipt): boolean {
       const res = db.prepare(
         `INSERT OR IGNORE INTO receipts (fact_id, fact_text, fact_created_at, verdict, tv_score, support_score, quote, speaker,
-          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope, attribution, rev) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,${NEXT_REV})`,
+          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope, attribution, attribution_why, rev) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,${NEXT_REV})`,
       ).run(r.factId, r.factText, r.factCreatedAt, r.verdict, r.tvScore, r.supportScore, r.quote, r.speaker, r.spokenAt,
-        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope), r.attribution);
+        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope), r.attribution, r.attributionWhy);
       return Number(res.changes) === 1;
     },
     setTodo(factId: number, todoId: number) {
