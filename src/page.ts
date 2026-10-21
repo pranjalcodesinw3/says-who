@@ -39,7 +39,7 @@ function scope(r: Row): string {
   return `<details class="scope"${r.verdict === "no-evidence" ? " open" : ""}><summary>Searched ${n} conversation${n === 1 ? "" : "s"}</summary><dl class="ev">${list}${window}${how}</dl></details>`;
 }
 
-function slip(r: Row): string {
+export function slip(r: Row): string {
   const stamp = STAMP[r.verdict];
   const open = r.decision === null;
   const buttons = open
@@ -76,12 +76,23 @@ function slip(r: Row): string {
   </article>`;
 }
 
-export function renderPage(rows: Row[], opts: { error?: string } = {}): string {
+export function tape(rows: Row[]): string {
   const n = (v: Verdict) => rows.filter((r) => r.verdict === v).length;
+  return `<section class="tape" id="tape" aria-label="Totals">
+<div><b>${rows.length}</b><span>facts checked</span></div>
+<div><b>${n("supported")}</b><span>receipt found</span></div>
+<div><b>${n("likely-tv")}</b><span>likely TV</span></div>
+<div><b>${n("unattributed")}</b><span>not tied to you</span></div>
+<div><b>${n("no-evidence")}</b><span>no evidence found</span></div>
+<div><b>${n("duplicate") + n("contradicts")}</b><span>duplicate or conflict</span></div>
+</section>`;
+}
+
+export function renderPage(rows: Row[], opts: { error?: string; rev?: number } = {}): string {
   const body = opts.error
     ? `<p class="empty">The ledger could not be read: ${esc(opts.error)}</p>`
     : rows.length === 0
-      ? `<p class="empty">The tape is blank. Start <code>receipts watch</code> while Bee is listening and each new fact prints here with the line that caused it.</p>`
+      ? `<p class="empty" id="empty">The tape is blank. Start <code>receipts watch</code> while Bee is listening and each new fact prints here with the line that caused it.</p>`
       : rows.map(slip).join("\n");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -105,9 +116,9 @@ h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-
  -webkit-mask:radial-gradient(circle 6px at 8px 100%,#0000 98%,#000) bottom/16px 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat;
  mask:radial-gradient(circle 6px at 8px 100%,#0000 98%,#000) bottom/16px 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat}
 .slip header{display:flex;justify-content:space-between;gap:12px;color:var(--ink-soft);font-size:12px;letter-spacing:.06em}
-.slip h2{font:600 16px/1.4 var(--font-mono);margin:12px 0;padding-right:112px;overflow-wrap:anywhere}
+.slip h2{font:600 16px/1.4 var(--font-mono);margin:12px 0;padding-right:148px;overflow-wrap:anywhere}
 hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
-.stamp{position:absolute;top:36px;right:12px;border:2px solid currentColor;padding:2px 8px;font:600 12px/1.4 var(--font-mono);text-transform:uppercase;letter-spacing:.08em;transform:rotate(-6deg);border-radius:2px}
+.stamp{position:absolute;top:36px;right:12px;max-width:132px;text-align:center;border:2px solid currentColor;padding:2px 8px;font:600 12px/1.4 var(--font-mono);text-transform:uppercase;letter-spacing:.08em;transform:rotate(-6deg);border-radius:2px}
 .stamp.ok{color:var(--ok)}.stamp.warn{color:var(--warn)}.stamp.bad{color:var(--bad)}
 .ev{display:grid;grid-template-columns:104px minmax(0,1fr);gap:4px 12px;margin:0}
 .ev dt{color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
@@ -131,23 +142,33 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .btn.ghost{background:transparent;color:var(--ink)}.btn.ghost:hover{background:var(--paper-edge)}
 .btn:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
 .btn[disabled]{opacity:.5;cursor:progress}
+.live{margin:0 0 24px}
+.live-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;color:var(--chalk-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--chalk-soft);flex:none}
+.dot.on{background:#6fbf8f}.dot.off{background:var(--bad)}
+.feed{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px}
+.feed li{background:var(--desk-2);padding:8px 12px;font-size:12px;overflow-wrap:anywhere;color:var(--chalk)}
+.feed li time{color:var(--chalk-soft);margin-right:8px;font-variant-numeric:tabular-nums}
+.feed li b{font-weight:600}
+.feed .feed-wait{color:var(--chalk-soft)}
+.slip.fresh{animation:fresh 1.6s ease-out}
+@keyframes fresh{from{outline:3px solid var(--warn);outline-offset:4px}to{outline:3px solid transparent;outline-offset:4px}}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
-@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}.slip.fresh{animation:none}}
 @media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
 </style></head>
-<body><main>
+<body><main data-rev="${opts.rev ?? 0}">
 <h1>Receipts</h1>
 <p class="lede">Every fact Bee wrote about you, with the line that caused it.</p>
-<section class="tape" aria-label="Totals">
-<div><b>${rows.length}</b><span>facts checked</span></div>
-<div><b>${n("supported")}</b><span>receipt found</span></div>
-<div><b>${n("likely-tv")}</b><span>likely TV</span></div>
-<div><b>${n("unattributed")}</b><span>not tied to you</span></div>
-<div><b>${n("no-evidence")}</b><span>no evidence found</span></div>
-<div><b>${n("duplicate") + n("contradicts")}</b><span>duplicate or conflict</span></div>
+${tape(rows)}
+<section class="live" aria-label="Live provenance feed">
+<p class="live-head"><span class="dot" id="dot"></span><span id="live-state">Connecting to the ledger</span></p>
+<ol id="feed" class="feed"><li class="feed-wait">Waiting for the next fact Bee writes. It lands here with the line that caused it.</li></ol>
 </section>
+<div id="slips">
 ${body}
+</div>
 </main>
 <script>
 document.addEventListener("click", async (e) => {
@@ -158,6 +179,46 @@ document.addEventListener("click", async (e) => {
   if (!res.ok) { b.disabled = false; b.textContent = "Failed: " + (await res.text()).slice(0, 80); return; }
   location.reload();
 });
+
+// Live feed: the server pushes every receipt change (a new fact, its wrist to-do, the wearer's tick) as it lands in the ledger.
+const rev0 = Number(document.querySelector("main").dataset.rev || 0);
+const feed = document.getElementById("feed"), state = document.getElementById("live-state"), dot = document.getElementById("dot");
+const verdictLabel = { supported: "Receipt found", "likely-tv": "Likely TV", unattributed: "Not tied to you", "no-evidence": "No evidence found", duplicate: "Duplicate", contradicts: "Conflict" };
+function line(r, isNew) {
+  const li = document.createElement("li");
+  const t = document.createElement("time");
+  t.textContent = new Date().toLocaleTimeString("en-GB");
+  li.append(t);
+  const what = document.createElement("b");
+  what.textContent = isNew ? "Fact " + r.factId + " arrived" : "Fact " + r.factId + " updated";
+  li.append(what, document.createTextNode(': "' + r.factText + '" '));
+  const out = r.decision ? "Decision: " + r.decision + "." : verdictLabel[r.verdict] + (r.quote ? '. Matched "' + r.quote + '"' : ". Searched " + r.searched + " conversations, found no line.");
+  li.append(document.createTextNode(out));
+  return li;
+}
+function connect() {
+  const es = new EventSource("/api/feed?after=" + rev0);
+  es.onopen = () => { dot.className = "dot on"; state.textContent = "Live. Watching the ledger for new facts"; };
+  es.onerror = () => { dot.className = "dot off"; state.textContent = "Reconnecting"; };
+  es.addEventListener("feed-error", (ev) => { dot.className = "dot off"; state.textContent = "Ledger read failed: " + ev.data; });
+  es.addEventListener("receipt", (ev) => {
+    const r = JSON.parse(ev.data);
+    const slips = document.getElementById("slips");
+    document.getElementById("empty")?.remove();
+    const tmp = document.createElement("div");
+    tmp.innerHTML = r.slip;
+    const next = tmp.firstElementChild;
+    const old = document.getElementById("fact-" + r.factId);
+    const isNew = !old;
+    if (old) old.replaceWith(next); else slips.prepend(next);
+    next.classList.add("fresh");
+    document.getElementById("tape").outerHTML = r.tape;
+    feed.querySelector(".feed-wait")?.remove();
+    feed.prepend(line(r, isNew));
+    while (feed.children.length > 6) feed.lastElementChild.remove();
+  });
+}
+connect();
 </script>
 </body></html>`;
 }

@@ -1,9 +1,11 @@
 import { createServer, type Server } from "node:http";
 import { confirmFact, forgetFact, type Deps } from "./watch.ts";
-import { renderPage } from "./page.ts";
+import { renderPage, slip, tape } from "./page.ts";
 
 // Local review page. Reads the ledger only; writes go through the same verified confirm/forget paths the watch loop uses.
-export function startServer(d: Deps, port: number): Promise<Server> {
+// feedMs: how often the live feed re-reads the ledger. The ledger is a SQLite file the watch loop may write from another process,
+// so the feed polls it instead of relying on in-process events.
+export function startServer(d: Deps, port: number, opts: { feedMs?: number } = {}): Promise<Server> {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const host = (req.headers.host ?? "").split(":")[0];
@@ -13,11 +15,35 @@ export function startServer(d: Deps, port: number): Promise<Server> {
     }
     try {
       if (req.method === "GET" && url.pathname === "/") {
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(renderPage(d.ledger.all()));
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(renderPage(d.ledger.all(), { rev: d.ledger.maxRev() }));
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/receipts") {
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(d.ledger.all()));
+        return;
+      }
+      if (req.method === "GET" && url.pathname === "/api/feed") {
+        // EventSource resends the last event id on reconnect, so a dropped connection replays what it missed.
+        const resumed = Number(req.headers["last-event-id"]);
+        let last = Number.isFinite(resumed) && resumed > 0 ? resumed : Number(url.searchParams.get("after") ?? d.ledger.maxRev());
+        res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+        res.write("retry: 2000\n\n");
+        let beats = 0;
+        const timer = setInterval(() => {
+          try {
+            const changed = d.ledger.since(last);
+            if (changed.length > 0) {
+              const all = d.ledger.all();
+              for (const r of changed) {
+                res.write(`id: ${r.rev}\nevent: receipt\ndata: ${JSON.stringify({ rev: r.rev, factId: r.factId, factText: r.factText, verdict: r.verdict, quote: r.quote, searched: r.searched, decision: r.decision, slip: slip(r), tape: tape(all) })}\n\n`);
+                last = r.rev;
+              }
+            } else if (++beats % 15 === 0) res.write(": keepalive\n\n");
+          } catch (e) {
+            res.write(`event: feed-error\ndata: ${JSON.stringify(e instanceof Error ? e.message : String(e))}\n\n`);
+          }
+        }, opts.feedMs ?? 1000);
+        req.on("close", () => clearInterval(timer));
         return;
       }
       const m = /^\/api\/facts\/(\d+)\/(confirm|forget)$/.exec(url.pathname);

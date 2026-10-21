@@ -53,5 +53,7 @@ mutate "Unknown is a default wearer label again" src/tv.ts 's/"you,me,user,owner
 mutate "non-wearer speaker does not block self attribution" src/match.ts 's/  if \(kind === "other"\) return \{ kind: "other", why: \`the line was spoken by/  if (false) return { kind: "other", why: \`the line was spoken by/'
 mutate "relations and pronouns no longer name someone else" src/match.ts 's/(export function subjectOf\([^\n]*\{\n)/$1  const f = FIRST_RE.exec(clause); if (f) return { kind: "self", cue: f[0] };\n/'
 mutate "wrist prompt drops the say-or-hear question" src/watch.ts 's/const ask = "Did you say it, or hear it\?";/const ask = "Looks like TV.";/'
+mutate "a decision does not bump the change counter" src/ledger.ts 's/verified_gone = \?, rev = \$\{NEXT_REV\} WHERE/verified_gone = ? WHERE/'
+mutate "live feed replays the whole ledger on connect" src/server.ts 's/let last = Number\.isFinite\(resumed\)[^\n]*;/let last = 0;/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status

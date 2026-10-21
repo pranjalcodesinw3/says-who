@@ -13,6 +13,8 @@ export type Row = Receipt & {
   decidedAt: number | null;
   verifiedGone: boolean | null;
   createdAt: number;
+  // monotonic change counter: bumped on insert, to-do link and decision, so a reader can ask "what changed since rev N"
+  rev: number;
 };
 
 export type Ledger = ReturnType<typeof openLedger>;
@@ -28,7 +30,7 @@ export function openLedger(path: string) {
       verdict TEXT NOT NULL, tv_score REAL NOT NULL, support_score REAL NOT NULL,
       quote TEXT, speaker TEXT, spoken_at INTEGER, conversation_id INTEGER, reasons TEXT NOT NULL, searched INTEGER NOT NULL,
       todo_id INTEGER, decision TEXT, decided_at INTEGER, verified_gone INTEGER, created_at INTEGER NOT NULL,
-      related_fact_id INTEGER, related_fact_text TEXT, attribution TEXT, scope TEXT
+      related_fact_id INTEGER, related_fact_text TEXT, attribution TEXT, scope TEXT, rev INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   `);
@@ -37,6 +39,7 @@ export function openLedger(path: string) {
   if (!have.has("related_fact_id")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_id INTEGER");
   if (!have.has("related_fact_text")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_text TEXT");
   if (!have.has("attribution")) db.exec("ALTER TABLE receipts ADD COLUMN attribution TEXT");
+  if (!have.has("rev")) db.exec("ALTER TABLE receipts ADD COLUMN rev INTEGER NOT NULL DEFAULT 0");
   if (!have.has("scope")) db.exec("ALTER TABLE receipts ADD COLUMN scope TEXT");
   // "unsupported" was renamed: a bounded search that found nothing is no evidence, not proof of absence
   db.exec("UPDATE receipts SET verdict = 'no-evidence' WHERE verdict = 'unsupported'");
@@ -58,7 +61,9 @@ export function openLedger(path: string) {
     decidedAt: r.decided_at === null ? null : Number(r.decided_at),
     verifiedGone: r.verified_gone === null ? null : Number(r.verified_gone) === 1,
     createdAt: Number(r.created_at),
+    rev: Number(r.rev ?? 0),
   });
+  const NEXT_REV = "(SELECT COALESCE(MAX(rev), 0) + 1 FROM receipts)";
 
   return {
     close: () => db.close(),
@@ -73,17 +78,24 @@ export function openLedger(path: string) {
     insert(r: Receipt): boolean {
       const res = db.prepare(
         `INSERT OR IGNORE INTO receipts (fact_id, fact_text, fact_created_at, verdict, tv_score, support_score, quote, speaker,
-          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope, attribution) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope, attribution, rev) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,${NEXT_REV})`,
       ).run(r.factId, r.factText, r.factCreatedAt, r.verdict, r.tvScore, r.supportScore, r.quote, r.speaker, r.spokenAt,
         r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope), r.attribution);
       return Number(res.changes) === 1;
     },
     setTodo(factId: number, todoId: number) {
-      db.prepare("UPDATE receipts SET todo_id = ? WHERE fact_id = ?").run(todoId, factId);
+      db.prepare(`UPDATE receipts SET todo_id = ?, rev = ${NEXT_REV} WHERE fact_id = ?`).run(todoId, factId);
     },
     decide(factId: number, decision: Decision, verifiedGone: boolean | null) {
-      db.prepare("UPDATE receipts SET decision = ?, decided_at = ?, verified_gone = ? WHERE fact_id = ? AND decision IS NULL")
+      db.prepare(`UPDATE receipts SET decision = ?, decided_at = ?, verified_gone = ?, rev = ${NEXT_REV} WHERE fact_id = ? AND decision IS NULL`)
         .run(decision, Date.now(), verifiedGone === null ? null : verifiedGone ? 1 : 0, factId);
+    },
+    // rows that changed after `rev`, oldest change first: the live feed reads this
+    since(rev: number): Row[] {
+      return db.prepare("SELECT * FROM receipts WHERE rev > ? ORDER BY rev ASC").all(rev).map(toRow);
+    },
+    maxRev(): number {
+      return Number(db.prepare("SELECT COALESCE(MAX(rev), 0) AS m FROM receipts").get()!.m);
     },
     cursor(): string | undefined {
       const r = db.prepare("SELECT v FROM kv WHERE k = 'cursor'").get();
