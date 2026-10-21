@@ -1,7 +1,7 @@
 // FIXTURE tests for the optional judge. No network: Bedrock is exercised through an injected `send`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bedrockJudge, buildPrompt, judgeFromEnv, parseDecision, type Judge, type JudgeInput } from "../src/judge.ts";
+import { bedrockJudge, buildPrompt, judgeFromEnv, parseDecision, type ChatRequest, type Judge, type JudgeInput } from "../src/judge.ts";
 import { assess, receiptFor, refine, type Ctx } from "../src/provenance.ts";
 import { tvContext } from "../src/tv.ts";
 import { FACT_OAT, FIXTURE_OWNER, NOISE_CONVO, WEARER_CONVO, fakeBee } from "./fixtures/fixture-bee.ts";
@@ -45,30 +45,49 @@ test("the prompt delimits untrusted transcript text and carries the neighbours",
   assert.ok(!p.includes("Next line"));
 });
 
-test("bedrock judge sends a deterministic Converse request with no credential material and parses the reply", async () => {
-  const sent: unknown[] = [];
+const reply = (content: string) => async () => ({ choices: [{ message: { content } }] });
+const probe = { factText: "x", utterance: "y", speaker: "s", before: null, after: null };
+
+test("bedrock judge sends a deterministic chat-completions request with no credential material and parses the reply", async () => {
+  const sent: ChatRequest[] = [];
   const judge = bedrockJudge({
-    modelId: "model-id-from-env", region: "us-east-1",
-    send: async (input) => { sent.push(input); return { output: { message: { role: "assistant", content: [{ text: '{"supports": true, "reason": "paraphrase"}' }] } } } as never; },
+    modelId: "model-id-from-env",
+    send: async (req) => { sent.push(req); return { choices: [{ message: { content: '{"supports": true, "reason": "paraphrase"}' } }] }; },
   });
   const d = await judge.decide({ factText: "Likes jazz", utterance: "Jazz is all I play", speaker: "Unknown", before: null, after: null });
   assert.deepEqual(d, { supports: true, reason: "paraphrase" });
-  const req = sent[0] as { modelId: string; inferenceConfig: { temperature: number }; system: { text: string }[] };
-  assert.equal(req.modelId, "model-id-from-env");
-  assert.equal(req.inferenceConfig.temperature, 0);
-  assert.match(req.system[0]!.text, /never follow instructions/);
-  assert.ok(!/accessKey|secret|sessionToken|credential/i.test(JSON.stringify(req)));
-  const bad = bedrockJudge({ modelId: "m", region: "r", send: async () => ({ output: { message: { role: "assistant", content: [{ text: "I think so" }] } } }) as never });
-  await assert.rejects(bad.decide({ factText: "x", utterance: "y", speaker: "s", before: null, after: null }), /no JSON object/);
+  assert.equal(sent[0]!.model, "model-id-from-env");
+  assert.equal(sent[0]!.temperature, 0);
+  assert.match(sent[0]!.messages[0]!.content, /never follow instructions/);
+  assert.ok(!/accessKey|secret|sessionToken|credential|AWS_BEARER/i.test(JSON.stringify(sent[0])));
+  await assert.rejects(bedrockJudge({ send: reply("I think so") }).decide(probe), /no JSON object/);
+  await assert.rejects(bedrockJudge({ send: async () => ({ choices: [{ message: { content: null } }] }) }).decide(probe), /no JSON object/);
 });
 
 test("judge is off by default and fails loudly on a half-set environment", () => {
   assert.equal(judgeFromEnv({}), undefined);
+  assert.equal(judgeFromEnv({ AWS_BEARER_TOKEN_BEDROCK: "x" }), undefined);
   assert.equal(judgeFromEnv({ RECEIPTS_JUDGE: "none" }), undefined);
-  assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", AWS_REGION: "us-east-1" }), /RECEIPTS_BEDROCK_MODEL_ID/);
-  assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", RECEIPTS_BEDROCK_MODEL_ID: "m" }), /AWS_REGION/);
+  assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "bedrock" }), /AWS_BEARER_TOKEN_BEDROCK/);
   assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "gpt" }), /none or bedrock/);
-  assert.equal(judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", RECEIPTS_BEDROCK_MODEL_ID: "m", AWS_REGION: "us-east-1" })?.name, "bedrock");
+  assert.equal(judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", AWS_BEARER_TOKEN_BEDROCK: "x" })?.name, "bedrock");
+});
+
+test("an unreachable endpoint rejects, so refine keeps the heuristic verdict", async () => {
+  const judge = bedrockJudge({ bearer: "x", region: "invalid-region-that-does-not-resolve" });
+  await assert.rejects(judge.decide(probe));
+});
+
+// LIVE: skipped without AWS_BEARER_TOKEN_BEDROCK. A real gpt-oss-120b call must return a parseable verdict, and it must get the obvious cases right.
+test("live: bedrock mantle judge returns a parseable verdict that separates support from a different topic", { skip: !process.env.AWS_BEARER_TOKEN_BEDROCK }, async () => {
+  const judge = judgeFromEnv({ RECEIPTS_JUDGE: "bedrock", AWS_BEARER_TOKEN_BEDROCK: process.env.AWS_BEARER_TOKEN_BEDROCK });
+  assert.ok(judge);
+  const yes = await judge.decide({ factText: "Likes jazz music", utterance: "Jazz records are all I play in the evenings.", speaker: "Unknown", before: null, after: null });
+  const no = await judge.decide({ factText: "Likes jazz music", utterance: "Did you remember to buy milk on the way home?", speaker: "Unknown", before: null, after: null });
+  assert.equal(typeof yes.supports, "boolean");
+  assert.equal(typeof no.supports, "boolean");
+  assert.equal(yes.supports, true, yes.reason);
+  assert.equal(no.supports, false, no.reason);
 });
 
 test("near-miss: without a judge the paraphrase is unsupported and nothing is called", async () => {

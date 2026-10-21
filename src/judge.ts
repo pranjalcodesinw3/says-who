@@ -1,7 +1,7 @@
-// Optional tie-breaker for borderline lexical matches. Off unless RECEIPTS_JUDGE is set; the heuristic verdict is the default.
-// Env NAMES read here: RECEIPTS_JUDGE (none | bedrock), RECEIPTS_BEDROCK_MODEL_ID, AWS_REGION (or AWS_DEFAULT_REGION).
-// AWS credentials are never read in this file: the SDK resolves them from its own chain (AWS_PROFILE, AWS_ACCESS_KEY_ID, ...).
-import { BedrockRuntimeClient, ConverseCommand, type ConverseCommandInput, type ConverseCommandOutput } from "@aws-sdk/client-bedrock-runtime";
+// Optional tie-breaker for borderline lexical matches. Off unless RECEIPTS_JUDGE=bedrock; the heuristic verdict is the default.
+// Calls Amazon Bedrock through its OpenAI-compatible "mantle" endpoint (chat completions), model openai.gpt-oss-120b.
+// Env NAMES read here: RECEIPTS_JUDGE (none | bedrock), RECEIPTS_BEDROCK_MODEL_ID (optional), AWS_REGION (optional, default us-east-1),
+// AWS_BEARER_TOKEN_BEDROCK (Bedrock API key, read from env only, sent as a bearer header, never logged).
 
 export type JudgeInput = { factText: string; utterance: string; speaker: string; before: string | null; after: string | null };
 export type JudgeDecision = { supports: boolean; reason: string };
@@ -28,21 +28,38 @@ export function parseDecision(text: string): JudgeDecision {
   return { supports: o.supports, reason };
 }
 
-type Send = (input: ConverseCommandInput) => Promise<ConverseCommandOutput>;
+export type ChatRequest = { model: string; messages: { role: "system" | "user"; content: string }[]; max_tokens: number; temperature: number; reasoning_effort: "low" };
+type Send = (req: ChatRequest) => Promise<{ choices?: { message?: { content?: string | null } }[] }>;
 
-export function bedrockJudge(opts: { modelId: string; region: string; send?: Send }): Judge {
-  const send: Send = opts.send ?? ((input) => new BedrockRuntimeClient({ region: opts.region }).send(new ConverseCommand(input)));
+export const DEFAULT_MODEL = "openai.gpt-oss-120b";
+
+export function bedrockJudge(opts: { modelId?: string; region?: string; bearer?: string; send?: Send }): Judge {
+  const model = opts.modelId ?? DEFAULT_MODEL;
+  const url = `https://bedrock-mantle.${opts.region ?? "us-east-1"}.api.aws/v1/chat/completions`;
+  const send: Send =
+    opts.send ??
+    (async (req) => {
+      if (!opts.bearer) throw new Error("no AWS_BEARER_TOKEN_BEDROCK");
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { authorization: `Bearer ${opts.bearer}`, "content-type": "application/json" },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) throw new Error(`bedrock-mantle HTTP ${res.status}`);
+      return (await res.json()) as Awaited<ReturnType<Send>>;
+    });
   return {
     name: "bedrock",
     async decide(i) {
       const out = await send({
-        modelId: opts.modelId,
-        system: [{ text: SYSTEM }],
-        messages: [{ role: "user", content: [{ text: buildPrompt(i) }] }],
-        inferenceConfig: { maxTokens: 80, temperature: 0 },
+        model,
+        messages: [{ role: "system", content: SYSTEM }, { role: "user", content: buildPrompt(i) }],
+        max_tokens: 400,
+        temperature: 0,
+        reasoning_effort: "low",
       });
-      const text = out.output?.message?.content?.map((c) => c.text ?? "").join("") ?? "";
-      return parseDecision(text);
+      return parseDecision(out.choices?.[0]?.message?.content ?? "");
     },
   };
 }
@@ -51,9 +68,7 @@ export function judgeFromEnv(env: Record<string, string | undefined> = process.e
   const kind = (env.RECEIPTS_JUDGE ?? "none").trim().toLowerCase();
   if (kind === "none" || kind === "") return undefined;
   if (kind !== "bedrock") throw new Error(`RECEIPTS_JUDGE must be none or bedrock, got "${kind}"`);
-  const modelId = env.RECEIPTS_BEDROCK_MODEL_ID;
-  const region = env.AWS_REGION ?? env.AWS_DEFAULT_REGION;
-  if (!modelId) throw new Error("RECEIPTS_JUDGE=bedrock needs RECEIPTS_BEDROCK_MODEL_ID");
-  if (!region) throw new Error("RECEIPTS_JUDGE=bedrock needs AWS_REGION");
-  return bedrockJudge({ modelId, region });
+  const bearer = env.AWS_BEARER_TOKEN_BEDROCK;
+  if (!bearer) throw new Error("RECEIPTS_JUDGE=bedrock needs AWS_BEARER_TOKEN_BEDROCK");
+  return bedrockJudge({ modelId: env.RECEIPTS_BEDROCK_MODEL_ID, region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION, bearer });
 }
