@@ -1,12 +1,17 @@
 import { createServer, type Server } from "node:http";
 import { confirmFact, forgetFact, type Deps } from "./watch.ts";
 import { hero, renderPage, slip, tape } from "./page.ts";
+import { buildDemo } from "./demo.ts";
 
 // Local review page. Reads the ledger only; writes go through the same verified confirm/forget paths the watch loop uses.
 // feedMs: how often the live feed re-reads the ledger. The ledger is a SQLite file the watch loop may write from another process,
 // so the feed polls it instead of relying on in-process events.
-export function startServer(d: Deps, port: number, opts: { feedMs?: number } = {}): Promise<Server> {
+// /demo/* serves a sample account (src/demo.ts) through the same page and the same verified write paths, in its own in-memory ledger.
+export function startServer(d0: Deps, port: number, opts: { feedMs?: number; demoOnly?: boolean } = {}): Promise<Server> {
+  let demo: Promise<Deps> | null = null;
   const server = createServer(async (req, res) => {
+    let d = d0;
+    let base = "";
     const url = new URL(req.url ?? "/", "http://localhost");
     const host = (req.headers.host ?? "").split(":")[0];
     if (host !== "127.0.0.1" && host !== "localhost") {
@@ -14,15 +19,33 @@ export function startServer(d: Deps, port: number, opts: { feedMs?: number } = {
       return;
     }
     try {
-      if (req.method === "GET" && url.pathname === "/") {
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(renderPage(d.ledger.all(), { rev: d.ledger.maxRev() }));
+      let path = url.pathname;
+      if (opts.demoOnly && path === "/") {
+        res.writeHead(302, { location: "/demo" }).end();
         return;
       }
-      if (req.method === "GET" && url.pathname === "/api/receipts") {
+      if (path === "/demo" || path.startsWith("/demo/")) {
+        if (req.method === "POST" && path === "/demo/api/reset") {
+          if (req.headers["x-receipts"] !== "1") { res.writeHead(403).end("missing x-receipts header"); return; }
+          demo = buildDemo();
+          await demo;
+          res.writeHead(200).end("ok");
+          return;
+        }
+        d = await (demo ??= buildDemo());
+        base = "/demo";
+        path = path.slice(5) || "/";
+      }
+      if (req.method === "GET" && path === "/") {
+        const rows = base ? [...d.ledger.all()].sort((a, b) => a.factId - b.factId) : d.ledger.all();
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(renderPage(rows, { rev: d.ledger.maxRev(), base }));
+        return;
+      }
+      if (req.method === "GET" && path === "/api/receipts") {
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(d.ledger.all()));
         return;
       }
-      if (req.method === "GET" && url.pathname === "/api/feed") {
+      if (req.method === "GET" && path === "/api/feed") {
         // EventSource resends the last event id on reconnect, so a dropped connection replays what it missed.
         const resumed = Number(req.headers["last-event-id"]);
         let last = Number.isFinite(resumed) && resumed > 0 ? resumed : Number(url.searchParams.get("after") ?? d.ledger.maxRev());
@@ -46,7 +69,7 @@ export function startServer(d: Deps, port: number, opts: { feedMs?: number } = {
         req.on("close", () => clearInterval(timer));
         return;
       }
-      const m = /^\/api\/facts\/(\d+)\/(confirm|forget)$/.exec(url.pathname);
+      const m = /^\/api\/facts\/(\d+)\/(confirm|forget)$/.exec(path);
       if (req.method === "POST" && m) {
         if (req.headers["x-receipts"] !== "1") {
           res.writeHead(403).end("missing x-receipts header");

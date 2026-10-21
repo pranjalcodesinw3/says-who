@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { realBee, type Fact } from "./bee.ts";
+import { buildDemo } from "./demo.ts";
 import { judgeFromEnv } from "./judge.ts";
 import { openLedger } from "./ledger.ts";
 import { contentTokens } from "./match.ts";
@@ -15,6 +16,7 @@ const USAGE = `receipts <command>
   review            review page only on http://127.0.0.1:$RECEIPTS_PORT (8790)
   why "<fact text>" print the receipt for the stored fact that best matches the text
   report            fact provenance counts and the wearer's decisions from the ledger
+  demo              sample account with three receipts on http://127.0.0.1:$RECEIPTS_PORT/demo (no Bee login needed)
   receipt <factId>  the stored receipt for one fact as JSON (no Bee login needed)`;
 
 const dbPath = process.env.RECEIPTS_DB ?? ".receipts/ledger.db";
@@ -101,6 +103,11 @@ async function main() {
     case "report":
       report();
       break;
+    case "demo": {
+      const s = await startServer(await buildDemo(), port, { demoOnly: true });
+      log(`demo on http://127.0.0.1:${(s.address() as { port: number }).port}/demo`);
+      break;
+    }
     case "receipt": {
       if (!rest[0]) throw new Error("usage: receipts receipt <factId>");
       const row = openLedger(dbPath).get(Number(rest[0]));

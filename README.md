@@ -31,9 +31,12 @@ npm run doctor                   # account, confirmed and pending fact counts
 npm run watch                    # loop + review page on http://127.0.0.1:8790
 npm run why "criminal lawyer"    # receipt for one stored fact
 npm run report                   # provenance counts and the wearer's decisions
+npm run demo                     # a sample account with three receipts at http://127.0.0.1:8790/demo, no Bee login
 npm run receipt 12               # the stored receipt for fact 12 as JSON
 npm run demo-day                 # the live procedure: TV clip near the Watch, receipt, wrist tick, read-back
 ```
+
+The review page opens with the receipt of the day: the most doubtful fact Bee wrote, the exact line behind it, Bee's own speaker label beside what Receipts reads from the words, the time, the verdict and one action. `/demo` shows a supported fact, a heard-on-TV fact and a no-evidence fact side by side, with working Forget and Confirm buttons that read back from the sample account.
 
 `scripts/demo-day.md` is the demo-day procedure. `scripts/forced-fault.sh` drives it with the real `bee` CLI: it starts once `bee me` confirms the login, waits for Bee itself to write a fact after the clip, prints the receipt, reads the wrist reminder back from Bee, waits for the tick and checks that `bee facts get` answers not found.
 
