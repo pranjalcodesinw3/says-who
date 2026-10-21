@@ -72,7 +72,7 @@ async function run(width: number, inject?: string): Promise<Result> {
 
 let failed = 0;
 try {
-  for (const w of [320, 390]) {
+  for (const w of [320, 390, 1440]) {
     const r = await run(w);
     console.log(`${w}px: viewport ${r.width}, ${r.slips} slips, ${r.violations.length} violation(s)`);
     for (const v of r.violations) console.log(`  - ${v}`);

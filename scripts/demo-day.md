@@ -17,7 +17,7 @@ Terminal A, the review page and the loop:
 RECEIPTS_INTERVAL_S=10 npm run watch
 ```
 
-Open http://127.0.0.1:8790. The Live strip at the top reads "Live. Watching the ledger for new facts". The loop polls `bee changed` every 10 seconds and a new receipt reaches the page within a second of being written.
+Open http://127.0.0.1:8790. The live tape in the left rail reads "Live. Watching the ledger for new facts". The loop polls `bee changed` every 10 seconds and a new receipt reaches the page within a second of being written.
 
 Terminal B, the driver:
 
@@ -31,7 +31,7 @@ It reads the pending facts as a baseline, tells the room to play the clip, then 
 
 1. Baseline printed: "N pending facts before the clip". Play the clip now.
 2. "Bee wrote fact N" with its text and the seconds since the script started. This is the moment Bee's memory changed.
-3. The receipt prints: verdict, the verbatim line, the speaker label, the conversation id, the TV signal with each cue listed, and the search scope (which conversations were read, their times, the window, the method). On the review page the same slip appears at the top with the quote under the fact, and the Live strip gets a line.
+3. The receipt prints: verdict, the verbatim line, the speaker label, the conversation id, the TV signal with each cue listed, and the search scope (which conversations were read, their times, the window, the method). On the review page the same slip appears at the top with the quote under the fact, and the live tape gets a line.
 4. "Wrist: reminder N" is read back from Bee with `bee todos get`. The reminder text on the Watch asks "Did you say it, or hear it?" over the matching line. Show the Watch.
 5. Tick the reminder on the Watch. The script polls `bee todos get` until `completed` is true, then runs one `receipts once` pass.
 6. The post-condition prints: `bee facts get N` answers not found. The slip on the review page changes to "Forgotten. Bee no longer holds this fact (read back, gone)" without a reload.

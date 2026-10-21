@@ -34,7 +34,7 @@ function scope(r: Row): string {
   const times = sc.candidates.slice(0, 6).map((c) => (c.at === null ? `#${c.id}` : `#${c.id} ${shortTime(c.at)}`));
   const more = n > times.length ? `, +${n - times.length} more` : "";
   const window = sc.since !== null && sc.until !== null ? `<dt>Window</dt><dd>${esc(shortTime(sc.since))} to ${esc(shortTime(sc.until))}</dd>` : "";
-  const how = sc.methods.length ? `<dt>Method</dt><dd>${sc.methods.map(esc).join("; ")}</dd>` : "";
+  const how = sc.methods.length ? `<dt>Method</dt><dd>${sc.methods.map(esc).join("<br>")}</dd>` : "";
   const list = n > 0 ? `<dt>Read</dt><dd>${esc(times.join(", ") + more)}</dd>` : "";
   return `<details class="scope"${r.verdict === "no-evidence" ? " open" : ""}><summary>Searched ${n} conversation${n === 1 ? "" : "s"}</summary><dl class="ev">${list}${window}${how}</dl></details>`;
 }
@@ -59,7 +59,9 @@ export function slip(r: Row): string {
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>`
     : `<p class="none">No evidence found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
-  const reasons = r.reasons.length ? `<ul class="why">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  // the "no evidence" sentence is already the slip's headline, so the reason list keeps only what adds to it
+  const shown = r.verdict === "no-evidence" ? r.reasons.filter((x) => !/^no evidence found/.test(x)) : r.reasons;
+  const reasons = shown.length ? `<ul class="why">${shown.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
   return `<article class="slip ${stamp.cls}" id="fact-${r.factId}">
     <header><span>FACT ${r.factId}</span><span>${esc(time(r.factCreatedAt))}</span></header>
     <h2>${esc(r.factText)}</h2>
@@ -68,7 +70,7 @@ export function slip(r: Row): string {
     ${related}
     ${evidence}
     ${scope(r)}
-    <div class="tv"><span>TV signal</span><meter min="0" max="1" low="0.3" high="0.5" optimum="0" value="${r.tvScore}"></meter><span class="num">${r.tvScore.toFixed(2)}</span></div>
+    <div class="tv"><span>TV signal</span><div class="gauge${r.tvScore >= 0.5 ? " hot" : ""}" role="img" aria-label="TV signal ${r.tvScore.toFixed(2)} of 1, the likely TV line is 0.50">${Array.from({ length: 10 }, (_, i) => `<b class="${i < Math.round(r.tvScore * 10) ? "on" : ""}"></b>`).join("")}</div><span class="num">${r.tvScore.toFixed(2)}</span></div>
     ${reasons}
     ${status(r)}
     ${buttons}
@@ -95,7 +97,7 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number } =
       : rows.map(slip).join("\n");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Receipts</title>
+<title>Receipts: where each Bee fact came from</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -105,6 +107,7 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number } =
 html,body{margin:0;overflow-x:clip}
 body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mono);padding:40px 16px}
 main{max-width:560px;margin:0 auto}
+@media (min-width:1024px){main{max-width:984px;display:grid;grid-template-columns:352px minmax(0,560px);gap:72px;align-items:start}.rail{position:sticky;top:40px}.rail .tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:148px}}
 h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
 .tape{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
@@ -117,7 +120,7 @@ h1{font:700 40px/1 var(--font-display);margin:0 0 8px;letter-spacing:.02em;text-
 .slip header{display:flex;justify-content:space-between;gap:12px;color:var(--ink-soft);font-size:12px;letter-spacing:.06em}
 .slip h2{font:600 16px/1.4 var(--font-mono);margin:12px 0;padding-right:148px;overflow-wrap:anywhere}
 hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
-.stamp{position:absolute;top:36px;right:12px;max-width:132px;text-align:center;border:2px solid currentColor;padding:2px 8px;font:600 12px/1.4 var(--font-mono);text-transform:uppercase;letter-spacing:.08em;transform:rotate(-6deg);border-radius:2px}
+.stamp{position:absolute;top:46px;right:12px;max-width:132px;text-align:center;border:2px solid currentColor;padding:2px 8px;font:600 12px/1.4 var(--font-mono);text-transform:uppercase;letter-spacing:.08em;transform:rotate(-6deg);border-radius:2px}
 .stamp.ok{color:var(--ok)}.stamp.warn{color:var(--warn)}.stamp.bad{color:var(--bad)}
 .ev{display:grid;grid-template-columns:104px minmax(0,1fr);gap:4px 12px;margin:0}
 .ev dt{color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
@@ -126,9 +129,12 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .none{margin:0;color:var(--ink-soft)}
 .rel{margin:0 0 12px;font-weight:500}
 .tv{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:12px;align-items:center;margin:12px 0 0;font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em}
-.tv meter{width:100%;height:8px}
+.gauge{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) 8px repeat(5,minmax(0,1fr));gap:2px;height:10px}
+.gauge b{background:var(--paper-edge)}
+.gauge b.on{background:var(--ink)}
+.gauge.hot b.on{background:var(--warn)}
+.gauge b:nth-child(6){grid-column:7}
 .num{font-variant-numeric:tabular-nums;color:var(--ink)}
-.fine{margin:4px 0 0;color:var(--ink-soft);font-size:12px}
 .scope{margin:12px 0 0}
 .scope summary{cursor:pointer;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:4px 0}
 .scope summary:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
@@ -145,19 +151,21 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .live-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;color:var(--chalk-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--chalk-soft);flex:none}
 .dot.on{background:#6fbf8f}.dot.off{background:var(--bad)}
-.feed{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px}
-.feed li{background:var(--desk-2);padding:8px 12px;font-size:12px;overflow-wrap:anywhere;color:var(--chalk)}
+.feed{list-style:none;margin:0;padding:0;border-top:1px dashed #5a564b}
+.feed li{padding:8px 0 8px 12px;border-bottom:1px dashed #5a564b;border-left:2px solid transparent;font-size:12px;overflow-wrap:anywhere;color:var(--chalk-soft)}
+.feed li:first-child{border-left-color:var(--warn);color:var(--chalk)}
 .feed li time{color:var(--chalk-soft);margin-right:8px;font-variant-numeric:tabular-nums}
 .feed li b{font-weight:600}
-.feed .feed-wait{color:var(--chalk-soft)}
+.feed .feed-wait{color:var(--chalk-soft)!important;border-left-color:transparent!important}
 .slip.fresh{animation:fresh 1.6s ease-out}
 @keyframes fresh{from{outline:3px solid var(--warn);outline-offset:4px}to{outline:3px solid transparent;outline-offset:4px}}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}.slip.fresh{animation:none}}
-@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0;margin-top:44px}.stamp{top:44px;right:auto;left:16px;margin-top:-8px}}
+@media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0}.stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}}
 </style></head>
 <body><main data-rev="${opts.rev ?? 0}">
+<div class="rail">
 <h1>Receipts</h1>
 <p class="lede">Every fact Bee wrote about you, with the line that caused it.</p>
 ${tape(rows)}
@@ -165,6 +173,7 @@ ${tape(rows)}
 <p class="live-head"><span class="dot" id="dot"></span><span id="live-state">Connecting to the ledger</span></p>
 <ol id="feed" class="feed"><li class="feed-wait">Waiting for the next fact Bee writes. It lands here with the line that caused it.</li></ol>
 </section>
+</div>
 <div id="slips">
 ${body}
 </div>
