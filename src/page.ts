@@ -86,6 +86,45 @@ export function slip(r: Row): string {
   </article>`;
 }
 
+// The receipt that most needs a decision today: open, and the most doubtful verdict first, newest first. With nothing open, the newest one.
+const URGENCY: Record<Verdict, number> = { "likely-tv": 5, unattributed: 4, contradicts: 3, "no-evidence": 2, duplicate: 1, supported: 0 };
+export function pickHero(rows: Row[]): Row | null {
+  const open = rows.filter((r) => r.decision === null);
+  const pool = open.length > 0 ? open : rows;
+  return [...pool].sort((a, b) => URGENCY[b.verdict] - URGENCY[a.verdict] || b.rev - a.rev || b.factId - a.factId)[0] ?? null;
+}
+
+export function hero(rows: Row[]): string {
+  const r = pickHero(rows);
+  if (!r) return `<section class="hero" id="hero" hidden></section>`;
+  const stamp = STAMP[r.verdict];
+  const line = r.quote
+    ? `<p class="line">&ldquo;${esc(r.quote)}&rdquo;</p>`
+    : `<p class="line none-found">No line found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains it.</p>`;
+  const unknown = !r.speaker || r.speaker.toLowerCase() === "unknown";
+  const trio = r.quote
+    ? `<div class="trio">
+      <div><span>Bee's speaker label</span><b>${esc(unknown ? "Unknown" : r.speaker!)}</b></div>
+      <div><span>Receipts reads it as</span><b>${r.attribution ? READS[r.attribution] : "No line to read"}</b></div>
+      <div><span>Heard</span><b>${esc(time(r.spokenAt))}</b></div>
+    </div>`
+    : "";
+  const why = r.verdict === "supported" ? "" : `<p class="why1">${esc(r.attributionWhy ?? r.reasons[0] ?? "")}</p>`;
+  const act = r.decision !== null
+    ? status(r)
+    : r.verdict === "supported"
+      ? `<button class="btn primary big" data-act="confirm" data-id="${r.factId}">Confirm this fact</button>`
+      : `<button class="btn primary big" data-act="forget" data-id="${r.factId}">Forget this fact</button>`;
+  return `<section class="hero ${stamp.cls}" id="hero" aria-label="Receipt of the day">
+    <p class="kick"><span>Receipt of the day</span><span>Fact ${r.factId} &middot; written ${esc(time(r.factCreatedAt))}</span></p>
+    <h2>Bee wrote: ${esc(r.factText)}</h2>
+    ${line}
+    ${trio}
+    <div class="go"><div class="stamp ${stamp.cls}">${stamp.label}</div>${why}</div>
+    <div class="act">${act}</div>
+  </section>`;
+}
+
 export function tape(rows: Row[]): string {
   const n = (v: Verdict) => rows.filter((r) => r.verdict === v).length;
   return `<section class="tape" id="tape" aria-label="Totals">
@@ -116,7 +155,26 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number } =
 html,body{margin:0;overflow-x:clip}
 body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mono);padding:40px 16px}
 main{max-width:560px;margin:0 auto}
-@media (min-width:1024px){main{max-width:984px;display:grid;grid-template-columns:352px minmax(0,560px);gap:72px;align-items:start}.rail{position:sticky;top:40px}.rail .tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:148px}}
+.top{grid-column:1/-1}
+.hero{grid-column:1/-1;background:#f4f4ef;color:#161513;border-top:6px solid var(--warn);padding:24px;margin:0 0 40px;border-radius:2px}
+.hero.ok{border-top-color:var(--ok)}.hero.bad{border-top-color:var(--bad)}
+.hero .kick{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0;font-size:14px;color:#47453f}
+.hero .kick span:first-child{font-weight:600;color:#161513}
+.hero h2{font:700 36px/1.08 var(--font-display);letter-spacing:.01em;margin:12px 0 16px;overflow-wrap:anywhere}
+.hero .line{font:500 20px/1.5 var(--font-mono);margin:0 0 16px;padding-left:16px;border-left:3px solid #161513;overflow-wrap:anywhere}
+.hero .line.none-found{font-weight:400;font-size:16px;color:#47453f}
+.hero .trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--paper-edge);border:1px solid var(--paper-edge)}
+.hero .trio>div{background:#f4f4ef;padding:8px 12px;min-width:0}
+.hero .trio span{display:block;color:#47453f;font-size:13px}
+.hero .trio b{display:block;font:600 15px/1.4 var(--font-mono);overflow-wrap:anywhere}
+.hero .go{display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap}
+.hero .stamp{position:static;display:inline-block;max-width:none;transform:rotate(-2deg)}
+.hero .why1{margin:0;flex:1 1 240px;font-size:14px;color:#161513}
+.hero .act{margin-top:20px}
+.hero .status{margin:0}
+.btn.big{font-size:16px;padding:16px 28px}
+@media (max-width:640px){.hero{padding:16px}.hero h2{font-size:28px}.hero .line{font-size:17px}.hero .trio{grid-template-columns:minmax(0,1fr)}}
+@media (min-width:1024px){main{max-width:984px;display:grid;grid-template-columns:352px minmax(0,560px);column-gap:72px;align-items:start}.rail{position:sticky;top:40px}.rail .tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:148px}}
 h1{font:700 28px/1 var(--font-display);margin:0 0 8px;letter-spacing:.03em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
 .tape{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
@@ -181,9 +239,10 @@ code{color:var(--chalk)}
 @media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0}.stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}}
 </style></head>
 <body><main data-rev="${opts.rev ?? 0}">
+<header class="top"><h1>Receipts</h1>
+<p class="lede">Every fact Bee wrote about you, with the line that caused it.</p></header>
+${hero(rows)}
 <div class="rail">
-<h1>Receipts</h1>
-<p class="lede">Every fact Bee wrote about you, with the line that caused it.</p>
 ${tape(rows)}
 <section class="live" aria-label="Live provenance feed">
 <p class="live-head"><span class="dot" id="dot"></span><span id="live-state">Connecting to the ledger</span></p>
@@ -237,6 +296,7 @@ function connect() {
     if (old) old.replaceWith(next); else slips.prepend(next);
     next.classList.add("fresh");
     document.getElementById("tape").outerHTML = r.tape;
+    document.getElementById("hero").outerHTML = r.hero;
     feed.querySelector(".feed-wait")?.remove();
     feed.prepend(line(r, isNew));
     while (feed.children.length > 6) feed.lastElementChild.remove();

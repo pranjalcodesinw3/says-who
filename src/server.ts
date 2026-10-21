@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { confirmFact, forgetFact, type Deps } from "./watch.ts";
-import { renderPage, slip, tape } from "./page.ts";
+import { hero, renderPage, slip, tape } from "./page.ts";
 
 // Local review page. Reads the ledger only; writes go through the same verified confirm/forget paths the watch loop uses.
 // feedMs: how often the live feed re-reads the ledger. The ledger is a SQLite file the watch loop may write from another process,
@@ -35,7 +35,7 @@ export function startServer(d: Deps, port: number, opts: { feedMs?: number } = {
             if (changed.length > 0) {
               const all = d.ledger.all();
               for (const r of changed) {
-                res.write(`id: ${r.rev}\nevent: receipt\ndata: ${JSON.stringify({ rev: r.rev, factId: r.factId, factText: r.factText, verdict: r.verdict, quote: r.quote, searched: r.searched, decision: r.decision, slip: slip(r), tape: tape(all) })}\n\n`);
+                res.write(`id: ${r.rev}\nevent: receipt\ndata: ${JSON.stringify({ rev: r.rev, factId: r.factId, factText: r.factText, verdict: r.verdict, quote: r.quote, searched: r.searched, decision: r.decision, slip: slip(r), tape: tape(all), hero: hero(all) })}\n\n`);
                 last = r.rev;
               }
             } else if (++beats % 15 === 0) res.write(": keepalive\n\n");

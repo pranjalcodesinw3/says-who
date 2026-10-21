@@ -59,5 +59,6 @@ mutate "demo-day script runs without a Bee login" scripts/forced-fault.sh 's/if 
 mutate "demo-day script accepts an unticked reminder" scripts/forced-fault.sh 's/\[ "\$ticked" = "1" \] \|\| die 6[^\n]*\n//'
 mutate "demo-day script skips the gone read-back" scripts/forced-fault.sh 's/if out=\$\("\$BEE" facts get "\$new_id" --json 2>&1\); then/if false; then/'
 mutate "page drops Receipts' reading beside Bee's speaker label" src/page.ts 's/\n      \$\{attribution\(r\)\}//'
+mutate "receipt of the day picks the least doubtful receipt" src/page.ts 's/URGENCY\[b\.verdict\] - URGENCY\[a\.verdict\]/URGENCY[a.verdict] - URGENCY[b.verdict]/'
 [ $status -eq 0 ] && echo "ALL MUTANTS KILLED, tree restored green" || echo "MUTATION CHECK FAILED"
 exit $status
