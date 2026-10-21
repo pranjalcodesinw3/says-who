@@ -13,3 +13,10 @@ test("every declared dependency is imported somewhere in src/ or scripts/", () =
   assert.ok(deps.length > 0 && sources.length > 5, "the check has something to look at");
   for (const dep of deps) assert.ok(sources.some((s) => s.includes(`from "${dep}`)), `${dep} is declared but never imported`);
 });
+
+test("the README states exactly as many mutants as scripts/mutation-check.sh defines", () => {
+  const defined = (readFileSync(`${root}scripts/mutation-check.sh`, "utf8").match(/^mutate "/gm) ?? []).length;
+  const claimed = Number(/breaks the guarded code (\d+) ways/.exec(readFileSync(`${root}README.md`, "utf8"))?.[1]);
+  assert.ok(defined > 10, "the script defines mutants");
+  assert.equal(claimed, defined);
+});

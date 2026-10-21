@@ -52,10 +52,10 @@ Environment: `RECEIPTS_DB` (default `.receipts/ledger.db`), `RECEIPTS_PORT` (879
 
 ## Proof
 
-- `npm test` runs the suite on labeled fixtures whose payload shapes are copied from the bee-cli source, including the real client calling the bundled `bee` binary and a full `receipts once` pass through a spawned `bee` process.
+- `npm test` runs 90 tests on labeled fixtures whose payload shapes are copied from the bee-cli source, including the real client calling the bundled `bee` binary and a full `receipts once` pass through a spawned `bee` process.
 - Must-fail cases: a planted fact no utterance supports comes back `no-evidence` even when search returns every conversation; a line that shares the fact's keywords but is about someone else comes back `unattributed`; the wearer's own sentence inside a TV-like conversation is not marked `likely-tv`; an unticked reminder produces no delete.
 - `RECEIPTS_JUDGE=bedrock` (off by default) adds an Amazon Bedrock tie-breaker for borderline matches: `openai.gpt-oss-120b` through the Bedrock OpenAI-compatible endpoint, keyed by `AWS_BEARER_TOKEN_BEDROCK`. A judge error never changes a verdict; the live test in `test/judge.test.ts` makes a real call and requires a parseable verdict.
-- `npm run mutation` breaks the guarded code 26 ways (matcher always hits, forget without a tick, TV signal removed, cursor handling, search scope, attribution, the line-level TV rule, Unknown speaker handling, the live feed, the demo-day login gate and more), requires red each time, restores, and requires green.
+- `npm run mutation` breaks the guarded code 32 ways (matcher always hits, forget without a tick, TV signal removed, cursor handling, search scope, attribution, the line-level TV rule, Unknown speaker handling, the live feed, the demo-day login gate and more), requires red each time, restores, and requires green.
 - `npm run viewport-check` frames the review page at 320, 390 and 1440 px in a browser tab and fails on horizontal scroll, clipped text, a stamp over heading text, small tap targets or broken-mid-word labels. A control run with deliberately broken CSS must fail or the check itself fails.
 - `npm run live-check` runs the three device spikes against the logged-in account and prints measured numbers. It exits 2 when logged out and 3 when the account has no facts.
 
