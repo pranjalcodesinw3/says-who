@@ -39,7 +39,7 @@ function report() {
   console.log(`Bee fact provenance: ${rows.length} facts checked`);
   console.log(`  receipt found (supported): ${by("supported")}`);
   console.log(`  heard from TV or others (likely-tv): ${by("likely-tv")}`);
-  console.log(`  no receipt (unsupported): ${by("unsupported")}`);
+  console.log(`  no evidence found (no-evidence): ${by("no-evidence")}`);
   console.log(`  stored twice (duplicate): ${by("duplicate")}`);
   console.log(`  opposes a confirmed fact (contradicts): ${by("contradicts")}`);
   const forgot = rows.filter((r) => r.decision === "forgotten" || r.decision === "already-gone").length;

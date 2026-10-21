@@ -29,7 +29,7 @@ test("review page lists every fact with its receipt, and the buttons write throu
   try {
     const page = await http(port, "GET", "/");
     assert.equal(page.status, 200);
-    for (const needle of ["Prefers oat milk", "Dave is a criminal lawyer", "I hold a commercial pilot licence", "I switched to oat milk this week", "Likely TV", "No receipt", "Receipt found", "facts checked"]) {
+    for (const needle of ["Prefers oat milk", "Dave is a criminal lawyer", "I hold a commercial pilot licence", "I switched to oat milk this week", "Likely TV", "No evidence found", "Searched 3 conversations", "not a probability", "Receipt found", "facts checked"]) {
       assert.ok(page.body.includes(needle), `page is missing "${needle}"`);
     }
     assert.ok(!page.body.includes("\u2014"), "no em dashes in page copy");

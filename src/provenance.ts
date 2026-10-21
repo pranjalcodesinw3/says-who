@@ -5,8 +5,11 @@ import type { Judge } from "./judge.ts";
 import { relate } from "./relate.ts";
 import { TV_THRESHOLD, tvLikelihood, type TvContext } from "./tv.ts";
 
-export const VERDICTS = ["supported", "likely-tv", "unsupported", "duplicate", "contradicts"] as const;
+export const VERDICTS = ["supported", "likely-tv", "no-evidence", "duplicate", "contradicts"] as const;
 export type Verdict = (typeof VERDICTS)[number];
+
+// What was actually searched. A no-evidence verdict is only as strong as this: a bounded search, not a proof that nobody said it.
+export type Scope = { methods: string[]; since: number | null; until: number | null; candidates: { id: number; at: number | null }[] };
 
 export type Receipt = {
   factId: number;
@@ -21,6 +24,7 @@ export type Receipt = {
   conversationId: number | null;
   reasons: string[];
   searched: number;
+  scope: Scope;
   relatedFactId: number | null;
   relatedFactText: string | null;
 };
@@ -41,17 +45,24 @@ export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Rec
     const tv = tvLikelihood(conv, support.index, ctx.tv);
     if (!pick || tv.score < pick.tv.score || (tv.score === pick.tv.score && support.score > pick.support.score)) pick = { conv, support, tv };
   }
-  const base = { factId: fact.id, factText: fact.text, factCreatedAt: toMs(fact.created_at), searched: conversations.length };
+  const base = { factId: fact.id, factText: fact.text, factCreatedAt: toMs(fact.created_at), searched: conversations.length, scope: scopeOf(conversations) };
   if (!pick) {
     const reason = contentTokens(fact.text, ctx.ownerNames).length === 0
       ? "fact has no checkable content words"
-      : `no utterance in ${conversations.length} candidate conversation(s) says this`;
-    return { ...base, verdict: "unsupported", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
+      : `no evidence found in the ${conversations.length} searched conversation(s)`;
+    return { ...base, verdict: "no-evidence", tvScore: 0, supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, reasons: [reason], relatedFactId: null, relatedFactText: null };
   }
   return build(base, pick.conv, pick.support, pick.tv);
 }
 
-function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "searched">, conv: Conversation, support: Support, tv: ReturnType<typeof tvLikelihood>): Receipt {
+export function scopeOf(conversations: Conversation[], methods: string[] = [], window: { since: number; until: number } | null = null): Scope {
+  return {
+    methods, since: window?.since ?? null, until: window?.until ?? null,
+    candidates: conversations.map((c) => ({ id: c.id, at: toMs(c.start_time) })),
+  };
+}
+
+function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "searched" | "scope">, conv: Conversation, support: Support, tv: ReturnType<typeof tvLikelihood>): Receipt {
   const u = conv.utterances[support.index]!;
   return {
     ...base,
@@ -69,14 +80,14 @@ function build(base: Pick<Receipt, "factId" | "factText" | "factCreatedAt" | "se
 }
 
 // Borderline = a match the lexical rules are not sure about: a supported receipt under 0.8 coverage (could be a coincidence),
-// or an unsupported one with a partial hit (could be a paraphrase). The judge sees one utterance and its neighbours, once per fact.
+// or a no-evidence one with a partial hit (could be a paraphrase). The judge sees one utterance and its neighbours, once per fact.
 // Its failure never changes the verdict: the heuristic stands and the receipt says the judge was unavailable.
 export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx, receipt: Receipt): Promise<Receipt> {
   const judge = ctx.judge;
   if (!judge) return receipt;
   type Pick = { conv: Conversation; index: number; support: Support };
   let pick: Pick | null = null;
-  if (receipt.verdict === "unsupported") {
+  if (receipt.verdict === "no-evidence") {
     for (const conv of conversations) {
       const support = findSupport(fact.text, conv.utterances, ctx.ownerNames, true);
       if (support && (!pick || support.score > pick.support.score)) pick = { conv, index: support.index, support };
@@ -94,12 +105,12 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
       before: us[pick.index - 1]?.text ?? null, after: us[pick.index + 1]?.text ?? null,
     });
     const note = `judge ${judge.name}: ${d.supports ? "supports" : "does not support"}${d.reason ? ` (${d.reason})` : ""}`;
-    if (receipt.verdict === "unsupported" && d.supports) {
-      const r = build({ factId: fact.id, factText: fact.text, factCreatedAt: receipt.factCreatedAt, searched: receipt.searched }, pick.conv, pick.support, tvLikelihood(pick.conv, pick.index, ctx.tv));
+    if (receipt.verdict === "no-evidence" && d.supports) {
+      const r = build({ factId: fact.id, factText: fact.text, factCreatedAt: receipt.factCreatedAt, searched: receipt.searched, scope: receipt.scope }, pick.conv, pick.support, tvLikelihood(pick.conv, pick.index, ctx.tv));
       return { ...r, reasons: [note, ...r.reasons] };
     }
-    if (receipt.verdict !== "unsupported" && !d.supports) {
-      return { ...receipt, verdict: "unsupported", supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
+    if (receipt.verdict !== "no-evidence" && !d.supports) {
+      return { ...receipt, verdict: "no-evidence", supportScore: 0, quote: null, speaker: null, spokenAt: null, conversationId: null, tvScore: 0, reasons: [note, `heuristic match was weak (${receipt.supportScore})`] };
     }
     return { ...receipt, reasons: [note, ...receipt.reasons] };
   } catch (e) {
@@ -107,13 +118,14 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
   }
 }
 
-async function fetchAll(bee: Bee, ids: number[], seen: Map<number, Conversation>, max: number): Promise<void> {
+async function fetchAll(bee: Bee, ids: number[], seen: Map<number, Conversation>, max: number): Promise<number> {
   let fetched = 0;
   for (const id of ids) {
     if (seen.has(id) || fetched >= max) continue;
     seen.set(id, await bee.getConversation(id));
     fetched++;
   }
+  return fetched;
 }
 
 // Candidate conversations: BM25 over conversations in [created-48h, created+10min], then the most recent conversations.
@@ -124,14 +136,19 @@ export async function receiptFor(bee: Bee, fact: Fact, ctx: Ctx, peers: Fact[] =
   const query = contentTokens(fact.text, ctx.ownerNames).join(" ") || fact.text;
   const seen = new Map<number, Conversation>();
 
-  await fetchAll(bee, await bee.searchConversationIds({ query, neural: false, limit: 10, ...window }), seen, 6);
-  await fetchAll(bee, await bee.recentConversationIds({ limit: 10 }), seen, 6);
+  const methods: string[] = [];
+  const bm = await bee.searchConversationIds({ query, neural: false, limit: 10, ...window });
+  methods.push(`text search in the window: ${bm.length} hit(s), ${await fetchAll(bee, bm, seen, 6)} read`);
+  const recent = await bee.recentConversationIds({ limit: 10 });
+  methods.push(`most recent conversations: ${await fetchAll(bee, recent, seen, 6)} more read`);
   let receipt = assess(fact, [...seen.values()], ctx);
-  if (receipt.verdict === "unsupported") {
-    await fetchAll(bee, await bee.searchConversationIds({ query: fact.text, neural: true, limit: 5, ...window }), seen, 4);
+  if (receipt.verdict === "no-evidence") {
+    const neural = await bee.searchConversationIds({ query: fact.text, neural: true, limit: 5, ...window });
+    methods.push(`neural search in the window: ${neural.length} hit(s), ${await fetchAll(bee, neural, seen, 4)} more read`);
     receipt = assess(fact, [...seen.values()], ctx);
   }
   receipt = await refine(fact, [...seen.values()], ctx, receipt);
+  receipt = { ...receipt, scope: scopeOf([...seen.values()], methods, window) };
   return withRelation(receipt, fact, peers, ctx);
 }
 

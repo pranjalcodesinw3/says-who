@@ -90,10 +90,10 @@ test("live: bedrock mantle judge returns a parseable verdict that separates supp
   assert.equal(no.supports, false, no.reason);
 });
 
-test("near-miss: without a judge the paraphrase is unsupported and nothing is called", async () => {
+test("near-miss: without a judge the paraphrase has no evidence and nothing is called", async () => {
   const r = assess(JAZZ_FACT, [PARAPHRASE], base);
-  assert.equal(r.verdict, "unsupported");
-  assert.equal((await refine(JAZZ_FACT, [PARAPHRASE], base, r)).verdict, "unsupported");
+  assert.equal(r.verdict, "no-evidence");
+  assert.equal((await refine(JAZZ_FACT, [PARAPHRASE], base, r)).verdict, "no-evidence");
 });
 
 test("near-miss: a judge that says yes turns the paraphrase into a supported receipt with the quote", async () => {
@@ -114,7 +114,7 @@ test("MUST-FAIL near-miss: a judge that says no, or errors, cannot create a rece
     const { judge } = judgeThat(answer);
     const ctx: Ctx = { ...base, judge };
     const r = await refine(JAZZ_FACT, [PARAPHRASE], ctx, assess(JAZZ_FACT, [PARAPHRASE], ctx));
-    assert.equal(r.verdict, "unsupported");
+    assert.equal(r.verdict, "no-evidence");
     assert.equal(r.quote, null);
     assert.match(r.reasons[0]!, answer === false ? /does not support/ : /unavailable \(Error\), heuristic verdict kept/);
   }
@@ -125,7 +125,7 @@ test("MUST-FAIL near-miss: a planted fact with no overlap never reaches the judg
   const ctx: Ctx = { ...base, judge };
   const planted: Fact = { ...JAZZ_FACT, id: 42, text: "I hold a commercial pilot licence" };
   const r = await refine(planted, [WEARER_CONVO, NOISE_CONVO], ctx, assess(planted, [WEARER_CONVO, NOISE_CONVO], ctx));
-  assert.equal(r.verdict, "unsupported");
+  assert.equal(r.verdict, "no-evidence");
   assert.equal(calls.length, 0);
 });
 
@@ -136,7 +136,7 @@ test("weak support: a judge that says no downgrades it, yes keeps it", async () 
   assert.equal(weak.verdict, "supported");
   assert.ok(weak.supportScore < 0.8);
   const down = await refine(FACT_OAT, [WEARER_CONVO], ctxNo, weak);
-  assert.equal(down.verdict, "unsupported");
+  assert.equal(down.verdict, "no-evidence");
   assert.equal(down.quote, null);
   const yes = judgeThat(true);
   const kept = await refine(FACT_OAT, [WEARER_CONVO], { ...base, judge: yes.judge }, weak);

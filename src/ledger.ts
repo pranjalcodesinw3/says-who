@@ -3,7 +3,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Receipt, Verdict } from "./provenance.ts";
+import type { Receipt, Scope, Verdict } from "./provenance.ts";
 
 export type Decision = "forgotten" | "confirmed" | "kept-todo-deleted" | "already-gone";
 
@@ -36,6 +36,9 @@ export function openLedger(path: string) {
   const have = new Set(db.prepare("PRAGMA table_info(receipts)").all().map((c) => String(c.name)));
   if (!have.has("related_fact_id")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_id INTEGER");
   if (!have.has("related_fact_text")) db.exec("ALTER TABLE receipts ADD COLUMN related_fact_text TEXT");
+  if (!have.has("scope")) db.exec("ALTER TABLE receipts ADD COLUMN scope TEXT");
+  // "unsupported" was renamed: a bounded search that found nothing is no evidence, not proof of absence
+  db.exec("UPDATE receipts SET verdict = 'no-evidence' WHERE verdict = 'unsupported'");
 
   const toRow = (r: Record<string, unknown>): Row => ({
     factId: Number(r.fact_id), factText: String(r.fact_text),
@@ -45,6 +48,7 @@ export function openLedger(path: string) {
     spokenAt: r.spoken_at === null ? null : Number(r.spoken_at),
     conversationId: r.conversation_id === null ? null : Number(r.conversation_id),
     reasons: JSON.parse(String(r.reasons)) as string[], searched: Number(r.searched),
+    scope: r.scope ? (JSON.parse(String(r.scope)) as Scope) : { methods: [], since: null, until: null, candidates: [] },
     relatedFactId: r.related_fact_id === null || r.related_fact_id === undefined ? null : Number(r.related_fact_id),
     relatedFactText: (r.related_fact_text as string | null | undefined) ?? null,
     todoId: r.todo_id === null ? null : Number(r.todo_id),
@@ -67,9 +71,9 @@ export function openLedger(path: string) {
     insert(r: Receipt): boolean {
       const res = db.prepare(
         `INSERT OR IGNORE INTO receipts (fact_id, fact_text, fact_created_at, verdict, tv_score, support_score, quote, speaker,
-          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          spoken_at, conversation_id, reasons, searched, created_at, related_fact_id, related_fact_text, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       ).run(r.factId, r.factText, r.factCreatedAt, r.verdict, r.tvScore, r.supportScore, r.quote, r.speaker, r.spokenAt,
-        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText);
+        r.conversationId, JSON.stringify(r.reasons), r.searched, Date.now(), r.relatedFactId, r.relatedFactText, JSON.stringify(r.scope));
       return Number(res.changes) === 1;
     },
     setTodo(factId: number, todoId: number) {

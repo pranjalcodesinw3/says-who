@@ -83,8 +83,8 @@ test("watch loop: duplicate and contradicting facts go to the wrist, the keeper 
   const v = Object.fromEntries(d.ledger.all().map((x) => [x.factId, x.verdict]));
   assert.equal(v[5], "duplicate");
   assert.equal(v[1], "contradicts", "Prefers oat milk opposes the confirmed Does not like oat milk");
-  assert.equal(v[6], "unsupported", "the confirmed negative has no negative utterance behind it, and is not asked about");
-  assert.equal(v[7], "unsupported");
+  assert.equal(v[6], "no-evidence", "the confirmed negative has no negative utterance behind it, and is not asked about");
+  assert.equal(v[7], "no-evidence");
   const labelled = [...bee.todos.values()].map((t) => /\[rcpt:(\d+)\]/.exec(t.text)![1]).sort();
   assert.deepEqual(labelled, ["1", "5", "7"], "no reminder for confirmed fact 6");
   assert.equal(d.ledger.get(5)!.relatedFactId, 1);

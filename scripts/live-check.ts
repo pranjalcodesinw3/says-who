@@ -72,7 +72,7 @@ try {
   const rf = await receiptFor(bee, plantedFalse, ctx);
   out("s1_planted_false_verdict", rf.verdict);
   verdict("S1 facts appear", recent.length >= 3, `${recent.length} fact(s) created in the last ${WINDOW_H} h (need 3+)`);
-  verdict("S1 must-fail (planted false fact)", rf.verdict === "unsupported", `"${PLANTED_FALSE}" came back ${rf.verdict}, searched ${rf.searched} conversation(s)`);
+  verdict("S1 must-fail (planted false fact)", rf.verdict === "no-evidence", `"${PLANTED_FALSE}" came back ${rf.verdict}, searched ${rf.searched} conversation(s)`);
 
   // ---- S3: attribution signal on the day's conversations ----
   const summaries = ((await raw.api.conversations.list({ limit: 30 })) as { conversations?: { id: number }[] }).conversations ?? [];

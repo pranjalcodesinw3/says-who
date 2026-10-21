@@ -8,7 +8,7 @@ const time = (ms: number | null) =>
 const STAMP: Record<Verdict, { label: string; cls: string }> = {
   supported: { label: "Receipt found", cls: "ok" },
   "likely-tv": { label: "Likely TV", cls: "warn" },
-  unsupported: { label: "No receipt", cls: "bad" },
+  "no-evidence": { label: "No evidence found", cls: "bad" },
   duplicate: { label: "Duplicate", cls: "warn" },
   contradicts: { label: "Conflict", cls: "bad" },
 };
@@ -19,6 +19,21 @@ function status(r: Row): string {
   if (r.decision === "kept-todo-deleted") return `<p class="status">Kept. The wrist to-do was dismissed without a tick.</p>`;
   if (r.todoId !== null) return `<p class="status">On your wrist as to-do ${r.todoId}. Tick it to forget this fact.</p>`;
   return "";
+}
+
+const shortTime = (ms: number) => new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+// The search scope: which conversations were read, when they started, how they were found, and the time window.
+// A receipt is only as good as this list, so it is printed on every slip.
+function scope(r: Row): string {
+  const sc = r.scope;
+  const n = sc.candidates.length;
+  const times = sc.candidates.slice(0, 6).map((c) => (c.at === null ? `#${c.id}` : `#${c.id} ${shortTime(c.at)}`));
+  const more = n > times.length ? `, +${n - times.length} more` : "";
+  const window = sc.since !== null && sc.until !== null ? `<dt>Window</dt><dd>${esc(shortTime(sc.since))} to ${esc(shortTime(sc.until))}</dd>` : "";
+  const how = sc.methods.length ? `<dt>Method</dt><dd>${sc.methods.map(esc).join("; ")}</dd>` : "";
+  const list = n > 0 ? `<dt>Read</dt><dd>${esc(times.join(", ") + more)}</dd>` : "";
+  return `<details class="scope"${r.verdict === "no-evidence" ? " open" : ""}><summary>Searched ${n} conversation${n === 1 ? "" : "s"}</summary><dl class="ev">${list}${window}${how}</dl></details>`;
 }
 
 function slip(r: Row): string {
@@ -40,7 +55,7 @@ function slip(r: Row): string {
         <dt>When</dt><dd>${esc(time(r.spokenAt))}</dd>
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>`
-    : `<p class="none">No utterance in ${r.searched} candidate conversation${r.searched === 1 ? "" : "s"} says this.</p>`;
+    : `<p class="none">No evidence found in ${r.searched} searched conversation${r.searched === 1 ? "" : "s"}. That is a bounded search, not proof nobody said it.</p>`;
   const reasons = r.reasons.length ? `<ul class="why">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
   return `<article class="slip ${stamp.cls}" id="fact-${r.factId}">
     <header><span>FACT ${r.factId}</span><span>${esc(time(r.factCreatedAt))}</span></header>
@@ -49,7 +64,9 @@ function slip(r: Row): string {
     <hr>
     ${related}
     ${evidence}
-    <div class="tv"><span>TV-likelihood</span><meter min="0" max="1" low="0.3" high="0.5" optimum="0" value="${r.tvScore}"></meter><span class="num">${r.tvScore.toFixed(2)}</span></div>
+    ${scope(r)}
+    <div class="tv"><span>TV signal</span><meter min="0" max="1" low="0.3" high="0.5" optimum="0" value="${r.tvScore}"></meter><span class="num">${r.tvScore.toFixed(2)}</span></div>
+    <p class="fine">A heuristic count of cues, not a probability.</p>
     ${reasons}
     ${status(r)}
     ${buttons}
@@ -98,6 +115,11 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .tv{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:12px;align-items:center;margin:12px 0 0;font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em}
 .tv meter{width:100%;height:8px}
 .num{font-variant-numeric:tabular-nums;color:var(--ink)}
+.fine{margin:4px 0 0;color:var(--ink-soft);font-size:12px}
+.scope{margin:12px 0 0}
+.scope summary{cursor:pointer;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:4px 0}
+.scope summary:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+.scope .ev{margin-top:8px;font-size:12px}
 .why{margin:8px 0 0;padding-left:16px;color:var(--ink-soft);font-size:12px}
 .status{margin:12px 0 0;font-weight:500}
 .actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
@@ -118,7 +140,7 @@ code{color:var(--chalk)}
 <div><b>${rows.length}</b><span>facts checked</span></div>
 <div><b>${n("supported")}</b><span>receipt found</span></div>
 <div><b>${n("likely-tv")}</b><span>likely TV</span></div>
-<div><b>${n("unsupported")}</b><span>no receipt</span></div>
+<div><b>${n("no-evidence")}</b><span>no evidence found</span></div>
 <div><b>${n("duplicate") + n("contradicts")}</b><span>duplicate or conflict</span></div>
 </section>
 ${body}

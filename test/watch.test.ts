@@ -27,7 +27,7 @@ test("tick: doubtful facts go to the wrist labelled with the fact id, the suppor
   const { bee, d } = setup();
   const r = await tick(d);
   assert.equal(r.failed, 0);
-  assert.deepEqual(d.ledger.all().map((x) => [x.factId, x.verdict]).sort(), [[1, "supported"], [2, "likely-tv"], [3, "unsupported"]]);
+  assert.deepEqual(d.ledger.all().map((x) => [x.factId, x.verdict]).sort(), [[1, "supported"], [2, "likely-tv"], [3, "no-evidence"]]);
   assert.equal(bee.todos.size, 2, "one to-do per doubtful fact");
   assert.ok(todoFor(bee, 2) && todoFor(bee, 3) && !todoFor(bee, 1));
   const t = todoFor(bee, 2)!;
@@ -132,7 +132,7 @@ test("confirm is verified by reading the fact back", async () => {
 });
 
 test("wrist text keeps the label even for a long fact", () => {
-  const text = todoText({ factId: 12, factText: "x".repeat(400), verdict: "unsupported", quote: null, spokenAt: null } as never);
+  const text = todoText({ factId: 12, factText: "x".repeat(400), verdict: "no-evidence", quote: null, spokenAt: null } as never);
   assert.match(text, /\[rcpt:12\]$/);
   assert.ok(text.length < 220);
 });

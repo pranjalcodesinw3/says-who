@@ -28,7 +28,7 @@ export function todoText(r: Receipt): string {
         ? `Bee already has this as fact ${r.relatedFactId}`
         : r.verdict === "contradicts"
           ? `You confirmed the opposite: "${clip(r.relatedFactText ?? "", 60)}"`
-          : "No receipt found";
+          : "No evidence found in searched conversations";
   return `Bee thinks "${clip(r.factText, 80)}". ${why}. Tick = forget ${labelFor(r.factId)}`;
 }
 

@@ -36,15 +36,15 @@ test("likely-tv: the lawyer line exists, but only in the TV conversation", () =>
   assert.ok(r.reasons.some((x) => /show cue/.test(x)) && r.reasons.some((x) => /not the wearer/.test(x)));
 });
 
-test("MUST-FAIL: a planted fact with no supporting utterance is unsupported, even when search returns every conversation", async () => {
+test("MUST-FAIL: a planted fact with no supporting utterance has no evidence, even when search returns every conversation", async () => {
   const direct = assess(FACT_PLANTED, pool, ctx);
-  assert.equal(direct.verdict, "unsupported");
+  assert.equal(direct.verdict, "no-evidence");
   assert.equal(direct.quote, null);
   const bee = fakeBee({ facts: [FACT_PLANTED], conversations: pool });
   const viaClient = await receiptFor(bee, FACT_PLANTED, ctx);
-  assert.equal(viaClient.verdict, "unsupported");
+  assert.equal(viaClient.verdict, "no-evidence");
   assert.ok(viaClient.searched >= 3, "must have actually looked at the candidates");
-  assert.ok(bee.calls.includes("search:neural"), "unsupported falls through to neural search");
+  assert.ok(bee.calls.includes("search:neural"), "no-evidence falls through to neural search");
 });
 
 test("a fact the wearer really said stays supported when the same words also played on TV", () => {
@@ -96,4 +96,18 @@ test("payload parsers accept the shapes bee-cli prints", () => {
   assert.equal(toMs(1_700_000_000), 1_700_000_000_000);
   assert.equal(toMs(1_700_000_000_000), 1_700_000_000_000);
   assert.equal(toMs(12), null);
+});
+
+test("no-evidence is a bounded-search verdict: the receipt records which conversations were read, when, and how they were found", async () => {
+  const bee = fakeBee({ facts: [FACT_PLANTED], conversations: pool });
+  const r = await receiptFor(bee, FACT_PLANTED, ctx);
+  assert.equal(r.verdict, "no-evidence");
+  assert.deepEqual(r.scope.candidates.map((c) => c.id).sort(), [101, 102, 103]);
+  assert.ok(r.scope.candidates.every((c) => c.at !== null), "candidate conversation times are kept");
+  assert.equal(r.scope.since, FACT_PLANTED.created_at - 48 * 3_600_000);
+  assert.equal(r.scope.until, FACT_PLANTED.created_at + 10 * 60_000);
+  assert.equal(r.scope.methods.length, 3, "text search, most recent, neural");
+  assert.ok(r.scope.methods.some((m) => /neural/.test(m)) && r.scope.methods.some((m) => /text search/.test(m)));
+  assert.ok(r.reasons.some((x) => /no evidence found/.test(x)), "reason says no evidence found, never 'nobody said it'");
+  assert.ok(!r.reasons.some((x) => /unsupported|no one|nobody/i.test(x)));
 });

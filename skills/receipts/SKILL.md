@@ -1,6 +1,6 @@
 ---
 name: receipts
-description: "Explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV-likelihood score and a verdict (supported, likely-tv, unsupported, duplicate, contradicts). Requires the bee-cli to be logged in."
+description: "Explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV signal score (a heuristic, not a probability), the search scope and a verdict (supported, likely-tv, no-evidence, duplicate, contradicts). Requires the bee-cli to be logged in."
 ---
 
 # Receipts
@@ -33,17 +33,18 @@ npm run watch                   # same, looping, plus the review page on http://
 | `speaker` | the label Bee gave that utterance. The wearer usually arrives as `Unknown` |
 | `spokenAt` | epoch milliseconds of the utterance (conversation start when the utterance has no time) |
 | `conversationId` | the conversation holding the quote. `bee conversations get <id>` shows the full context |
-| `tvScore` | 0 to 1, how TV-like that conversation is. 0.5 or more makes the verdict `likely-tv` |
+| `tvScore` | 0 to 1 heuristic signal: a sum of cues (speaker, other voices, cadence, show cues, third person), not a probability. 0.5 or more makes the verdict `likely-tv` |
 | `supportScore` | share of the fact's content words found in the quoted utterance |
 | `reasons` | why, in words: non-wearer speaker, other voices, scripted cadence, show cue, third-person quote, judge notes |
 | `relatedFactId`, `relatedFactText` | the other fact for `duplicate` and `contradicts` |
 | `factCreatedAt`, `searched` | when Bee wrote the fact, and how many candidate conversations were read |
+| `scope` | what was searched: `methods` (text, recent, neural), the `since` to `until` window, and `candidates` (conversation id and start time) |
 
 | Verdict | Say it like this |
 |---|---|
 | `supported` | "You said it: <quote>, at <time>." |
 | `likely-tv` | "Bee heard this at <time> in a conversation that looks like TV: <quote>, spoken by <speaker>. <reasons>." |
-| `unsupported` | "I found no utterance that says this in the <searched> conversations around it." State that the source may also have been deleted: Bee drops recordings under about 50 words. |
+| `no-evidence` | "I found no evidence for this in the <searched> conversations I searched (<scope.methods>, <scope.candidates> times)." Never say nobody said it: the search is bounded, and the source may have been deleted (Bee drops recordings under about 50 words). |
 | `duplicate` | "Bee already has this as fact <relatedFactId>." |
 | `contradicts` | "This opposes the fact you confirmed: <relatedFactText>." |
 
