@@ -1,5 +1,5 @@
 {
-  "name": "receipts",
+  "name": "says-who",
   "version": "0.1.0",
   "description": "Live provenance for Bee facts: a verbatim receipt for every fact, doubtful ones sent to the wrist as a to-do, tick to forget.",
   "type": "module",
@@ -8,7 +8,7 @@
     "node": ">=22.13"
   },
   "bin": {
-    "receipts": "./src/cli.ts"
+    "says-who": "./src/cli.ts"
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.ts",

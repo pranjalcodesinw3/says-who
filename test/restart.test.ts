@@ -46,7 +46,7 @@ test("a tick on the wrist while the process is down is honoured on restart: forg
   let d = boot(bee, db);
   await tick(d);
   d.ledger.close();
-  bee.tick(todosFor(bee, 2)[0]!.id, { completed: true }); // the wearer ticks while Receipts is not running
+  bee.tick(todosFor(bee, 2)[0]!.id, { completed: true }); // the wearer ticks while Says Who is not running
 
   d = boot(bee, db);
   assert.equal(d.ledger.get(2)!.decision, null, "nothing was decided while down");

@@ -159,7 +159,7 @@ test("live feed resumes from Last-Event-ID after a dropped connection", async ()
   }
 });
 
-test("each slip with a quote shows Bee's own speaker label beside what Receipts reads, from the same ledger row", async () => {
+test("each slip with a quote shows Bee's own speaker label beside what Says Who reads, from the same ledger row", async () => {
   const bee = fakeBee({ facts: [FACT_VEGAN, FACT_LAWYER], conversations: [BROTHER_CONVO, TV_CONVO] });
   const d: Deps = { bee, ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: ["Dave"], tv: tvContext("Dave") }, alarmLeadMs: 0 };
   await tick(d);
@@ -170,7 +170,7 @@ test("each slip with a quote shows Bee's own speaker label beside what Receipts 
     assert.equal(slips.length, 2);
     const vegan = slips.find((x) => x.includes('id="fact-20"'))!;
     assert.match(vegan, /Bee's speaker label<\/span><b>Unknown<\/b><small>Bee did not name the speaker/);
-    assert.match(vegan, /Receipts reads it as<\/span><b>About someone else<\/b><small>the line is about someone else \(&quot;my brother&quot;\)/);
+    assert.match(vegan, /Says Who reads it as<\/span><b>About someone else<\/b><small>the line is about someone else \(&quot;my brother&quot;\)/);
     const tv = slips.find((x) => x.includes('id="fact-2"'))!;
     assert.match(tv, /<b>Speaker 2<\/b><small>As Bee labelled the line/);
   } finally {
@@ -192,14 +192,14 @@ test("receipt of the day: the most doubtful open receipt, with the fact, the exa
   assert.match(html, /Bee wrote: Dave is a criminal lawyer/);
   assert.match(html, /&ldquo;He is a criminal lawyer with a reputation/);
   assert.match(html, /Bee's speaker label<\/span><b>Speaker 2<\/b>/);
-  assert.match(html, /Receipts reads it as<\/span><b>About someone else<\/b>/);
+  assert.match(html, /Says Who reads it as<\/span><b>About someone else<\/b>/);
   assert.match(html, /Likely TV/);
   assert.equal((html.match(/data-act=/g) ?? []).length, 1, "one action");
   assert.match(html, /data-act="forget" data-id="2"/);
   // once the TV fact is decided the next most doubtful one takes the slot
   d.ledger.decide(2, "forgotten", true);
   assert.equal(pickHero(d.ledger.all())!.factId, 3);
-  assert.match(hero(d.ledger.all()), /No line found\. Receipts read 3 conversations/);
+  assert.match(hero(d.ledger.all()), /No line found\. Says Who read 3 conversations/);
   d.ledger.decide(3, "forgotten", true);
   assert.equal(pickHero(d.ledger.all())!.factId, 1);
   assert.match(hero(d.ledger.all()), /data-act="confirm" data-id="1"/, "a supported receipt offers the confirm action");

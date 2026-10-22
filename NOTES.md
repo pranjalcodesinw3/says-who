@@ -1,8 +1,8 @@
-# Source notes: Bee shapes Receipts relies on
+# Source notes: Bee shapes Says Who relies on
 
 All paths are under `sources/` of `bee-computer/bee-cli` at 0.8.0, commit `84a6e8f` (cloned 2026-10-21), except the skill rows, which are `bee-computer/bee-skill` at `64e10ad`. Package: `@beeai/cli` 0.8.0, pinned in `package.json`, whose `./lib` export is the runtime hook (`src/bee.ts`).
 
-| Receipts needs | Bee call | Shape relied on | Source |
+| Says Who needs | Bee call | Shape relied on | Source |
 |---|---|---|---|
 | Client | `createBeeClient({ command, env })` returns `{ auth, api, sse, run, runJson }` | every `api.*` call shells out to `bee <args> --json` and JSON-parses stdout, throwing the stderr text on a non-zero exit | `lib/index.ts:29-38`, `lib/runner.ts:150-160, 178-180` |
 | Who am I | `api.me()` = `bee me --json` | `{ id, first_name, last_name }` | `client/clientMe.ts:7-11, 32-44`; `lib/api.ts:125` |

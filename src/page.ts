@@ -22,7 +22,7 @@ function status(r: Row): string {
   return "";
 }
 
-// Two readings of the same line, side by side. Bee's own speaker label is shown as Bee gave it; Receipts adds what the words and the label support.
+// Two readings of the same line, side by side. Bee's own speaker label is shown as Bee gave it; Says Who adds what the words and the label support.
 // "Unknown" is Bee's label for anyone it could not name: not the wearer and not a stranger, so the copy says so.
 const READS = { self: "Tied to you", other: "About someone else", unclear: "Not tied to anyone" } as const;
 function attribution(r: Row): string {
@@ -30,7 +30,7 @@ function attribution(r: Row): string {
   const read = r.attribution ? READS[r.attribution] : "No line to read";
   return `<div class="attr">
         <div><span>Bee's speaker label</span><b>${esc(unknown ? "Unknown" : r.speaker!)}</b><small>${unknown ? "Bee did not name the speaker" : "As Bee labelled the line"}</small></div>
-        <div class="mine ${r.attribution ?? ""}"><span>Receipts reads it as</span><b>${read}</b><small>${esc(r.attributionWhy ?? "")}</small></div>
+        <div class="mine ${r.attribution ?? ""}"><span>Says Who reads it as</span><b>${read}</b><small>${esc(r.attributionWhy ?? "")}</small></div>
       </div>`;
 }
 const shortTime = (ms: number) => new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -67,7 +67,7 @@ export function slip(r: Row): string {
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>
       ${attribution(r)}`
-    : `<p class="none">No evidence found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
+    : `<p class="none">No evidence found. Says Who read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
   // the "no evidence" sentence is already the slip's headline, so the reason list keeps only what adds to it
   const shown = r.verdict === "no-evidence" ? r.reasons.filter((x) => !/^no evidence found/.test(x)) : r.reasons;
   const reasons = shown.length ? `<ul class="why">${shown.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
@@ -100,12 +100,12 @@ export function hero(rows: Row[]): string {
   const stamp = STAMP[r.verdict];
   const line = r.quote
     ? `<p class="line">&ldquo;${esc(r.quote)}&rdquo;</p>`
-    : `<p class="line none-found">No line found. Receipts read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains it.</p>`;
+    : `<p class="line none-found">No line found. Says Who read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains it.</p>`;
   const unknown = !r.speaker || r.speaker.toLowerCase() === "unknown";
   const trio = r.quote
     ? `<div class="trio">
       <div><span>Bee's speaker label</span><b>${esc(unknown ? "Unknown" : r.speaker!)}</b></div>
-      <div><span>Receipts reads it as</span><b>${r.attribution ? READS[r.attribution] : "No line to read"}</b></div>
+      <div><span>Says Who reads it as</span><b>${r.attribution ? READS[r.attribution] : "No line to read"}</b></div>
       <div><span>Heard</span><b>${esc(time(r.spokenAt))}</b></div>
     </div>`
     : "";
@@ -147,7 +147,7 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number; ba
       : rows.map(slip).join("\n");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Receipts: where each Bee fact came from</title>
+<title>Says Who: where each Bee fact came from</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -255,7 +255,7 @@ code{color:var(--chalk)}
 @media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0}.stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}}
 </style></head>
 <body><main class="${demo ? "demo" : ""}" data-rev="${opts.rev ?? 0}" data-base="${base}">
-<header class="top"><h1>Receipts</h1>
+<header class="top"><h1>Says Who</h1>
 ${demo
     ? `<p class="lede"><span class="tag">Demo</span> A sample Bee account with three facts. Each one gets its receipt from the same engine that reads a real account. Try the button on the receipt of the day.</p><div class="demo-actions"><button class="btn ghost-desk" data-reset="1">Reset the demo</button></div>`
     : `<p class="lede">Every fact Bee wrote about you, with the line that caused it.</p><div class="demo-actions"><a class="btn ghost-desk" href="/demo">Open the demo</a></div>`}</header>

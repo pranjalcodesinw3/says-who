@@ -59,8 +59,8 @@ done
 mark "Bee wrote fact $new_id: \"$new_text\""
 
 # 2. Receipt. `once` is idempotent and shares the ledger with `npm run watch`, so the review page shows this fact live.
-"${RCPT[@]}" once >/dev/null || die 4 "receipts once failed"
-receipt=$("${RCPT[@]}" receipt "$new_id") || die 4 "no receipt in the ledger for fact $new_id after receipts once"
+"${RCPT[@]}" once >/dev/null || die 4 "says-who once failed"
+receipt=$("${RCPT[@]}" receipt "$new_id") || die 4 "no receipt in the ledger for fact $new_id after says-who once"
 printf '%s' "$receipt" | json '"verdict " + o.verdict + " | attribution " + o.attribution + " | tv signal " + o.tvScore + "\nline    " + (o.quote ? JSON.stringify(o.quote) : "none") + "\nspeaker " + o.speaker + ", conversation " + o.conversationId + "\nsearched " + o.scope.candidates.length + " conversation(s): " + o.scope.methods.join("; ")'
 mark "receipt filed"
 
@@ -89,7 +89,7 @@ done
 mark "tick seen on reminder $todo_id"
 
 # 5. Reconcile, then the post-condition only a real delete can produce: the fact no longer exists in Bee.
-"${RCPT[@]}" once >/dev/null || die 7 "receipts once failed after the tick"
+"${RCPT[@]}" once >/dev/null || die 7 "says-who once failed after the tick"
 if out=$("$BEE" facts get "$new_id" --json 2>&1); then
   die 7 "tick seen but fact $new_id is still readable in Bee"
 fi

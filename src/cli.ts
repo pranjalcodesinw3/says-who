@@ -9,7 +9,7 @@ import { startServer } from "./server.ts";
 import { tvContext } from "./tv.ts";
 import { tick, watch, type Deps } from "./watch.ts";
 
-const USAGE = `receipts <command>
+const USAGE = `says-who <command>
   doctor            verify Bee login and print the account the receipts will be filed under
   once              one pass: changed feed -> receipts -> wrist to-dos -> decisions
   watch [--serve]   loop every RECEIPTS_INTERVAL_S (60) seconds, wake on todo-updated; --serve also starts the review page
@@ -34,7 +34,7 @@ async function deps(): Promise<Deps> {
 function report() {
   const rows = openLedger(dbPath).all();
   if (rows.length === 0) {
-    console.log("ledger is empty: run `receipts once` or `receipts watch` against a logged-in Bee first");
+    console.log("ledger is empty: run `says-who once` or `says-who watch` against a logged-in Bee first");
     process.exitCode = 1;
     return;
   }
@@ -97,7 +97,7 @@ async function main() {
       break;
     }
     case "why":
-      if (!rest[0]) throw new Error('usage: receipts why "<fact text>"');
+      if (!rest[0]) throw new Error('usage: says-who why "<fact text>"');
       await why(rest.join(" "));
       break;
     case "report":
@@ -109,7 +109,7 @@ async function main() {
       break;
     }
     case "receipt": {
-      if (!rest[0]) throw new Error("usage: receipts receipt <factId>");
+      if (!rest[0]) throw new Error("usage: says-who receipt <factId>");
       const row = openLedger(dbPath).get(Number(rest[0]));
       if (!row) {
         console.error(`no receipt for fact ${rest[0]}`);

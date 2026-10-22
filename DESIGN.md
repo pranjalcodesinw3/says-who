@@ -1,4 +1,4 @@
-# Receipts design tokens
+# Says Who design tokens
 
 Direction: the page is a desk with till receipts on it. Each Bee fact is a paper slip with the evidence printed under it and a verdict stamp. Monospace for everything that was printed, one condensed ticket face for the title.
 

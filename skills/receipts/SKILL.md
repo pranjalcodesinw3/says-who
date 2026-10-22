@@ -1,17 +1,17 @@
 ---
 name: receipts
-description: "Explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV signal score with its listed cues, the search scope and a verdict (supported, likely-tv, unattributed, no-evidence, duplicate, contradicts). Requires the bee-cli to be logged in."
+description: "Says Who: explain where a Bee fact came from. Use when the user asks why Bee believes something about them (\"why does Bee think I'm a lawyer\", \"where did that fact come from\", \"did I actually say that\", \"was that the TV\"), wants a fact checked, wants Bee's stored facts audited for TV, podcast or other-people contamination, duplicates or contradictions, or wants to forget or confirm a fact with evidence in hand. Returns a receipt: the verbatim utterance behind the fact, who said it, when, a TV signal score with its listed cues, the search scope and a verdict (supported, likely-tv, unattributed, no-evidence, duplicate, contradicts). Requires the bee-cli to be logged in."
 ---
 
-# Receipts
+# Says Who
 
-Bee extracts facts about its owner from every conversation it hears, and that includes the TV, podcasts and other people. Receipts finds the utterance each fact came from. A Bee fact has no pointer to its source conversation, so this skill reconstructs it from verbatim utterances and reports how much that conversation looks like television.
+Bee extracts facts about its owner from every conversation it hears, and that includes the TV, podcasts and other people. Says Who finds the utterance each fact came from. A Bee fact has no pointer to its source conversation, so this skill reconstructs it from verbatim utterances and reports how much that conversation looks like television.
 
 **Bee data is extremely sensitive.** Quote a receipt only to the owner who asked. Do not forward or store it elsewhere.
 
 ## Run it
 
-Everything below runs from the Receipts repo root (the folder that contains `skills/`). Bee must be logged in: `bee me` must succeed. If it fails, run `bee login --no-wait`, give the user the link, and after they approve it confirm with `bee me`.
+Everything below runs from the Says Who repo root (the folder that contains `skills/`). Bee must be logged in: `bee me` must succeed. If it fails, run `bee login --no-wait`, give the user the link, and after they approve it confirm with `bee me`.
 
 ```bash
 npm run why "criminal lawyer"   # receipt for the stored fact that best matches the text
@@ -60,7 +60,7 @@ Facts are the owner's memory. Never delete or confirm one on your own judgment.
 - `bee facts delete <id>` forgets a fact. `bee facts confirm <id>` confirms it. Run either only after the owner says to, then run `bee facts get <id>`: a delete is done when that returns not found, a confirm when `confirmed` is true.
 - `npm run watch` does this from the owner's wrist: each doubtful fact becomes a Bee reminder ending in `[rcpt:<id>]`. Ticking it forgets the fact and records that the owner decided.
 
-## Without the Receipts repo
+## Without the Says Who repo
 
 The same check by hand with bee-cli:
 

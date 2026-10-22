@@ -1,6 +1,6 @@
 # Demo day procedure
 
-One fault, played live: a TV clip near the wearer's Watch, Bee writes a fact from it, Receipts shows the line that caused it, the doubtful fact lands on the wrist as a reminder, and a tick forgets it with a read-back. Every step below runs against the real Bee account through the real `bee` CLI, and the fact on screen is the one Bee wrote itself.
+One fault, played live: a TV clip near the wearer's Watch, Bee writes a fact from it, Says Who shows the line that caused it, the doubtful fact lands on the wrist as a reminder, and a tick forgets it with a read-back. Every step below runs against the real Bee account through the real `bee` CLI, and the fact on screen is the one Bee wrote itself.
 
 ## Before the room fills (10 minutes)
 
@@ -41,7 +41,7 @@ It starts the watch loop with the review page, opens the page in the `deepsurge`
 2. "Bee wrote fact N" with its text and the seconds since the script started. This is the moment Bee's memory changed.
 3. The receipt prints: verdict, the verbatim line, the speaker label, the conversation id, the TV signal with each cue listed, and the search scope (which conversations were read, their times, the window, the method). On the review page the same slip appears at the top with the quote under the fact, and the live tape gets a line.
 4. "Wrist: reminder N" is read back from Bee with `bee todos get`. The reminder text on the Watch asks "Did you say it, or hear it?" over the matching line. Show the Watch.
-5. Tick the reminder on the Watch. The script polls `bee todos get` until `completed` is true, then runs one `receipts once` pass.
+5. Tick the reminder on the Watch. The script polls `bee todos get` until `completed` is true, then runs one `says-who once` pass.
 6. The post-condition prints: `bee facts get N` answers not found. The slip on the review page changes to "Forgotten. Bee no longer holds this fact (read back, gone)" without a reload.
 
 The elapsed seconds between beats 2, 3, 4 and 5 are printed by the script. Read them out as measured on that run.
