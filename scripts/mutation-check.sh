@@ -44,6 +44,7 @@ mutate "contradiction ignores polarity" src/relate.ts 's/theirs\.negative !== mi
 mutate "evidence ignores polarity" src/match.ts 's/if \(isNegative\(bestClause\(window, hit\)\) !== factNegative\) continue;//'
 mutate "judge verdict ignored on near-miss" src/provenance.ts 's/if \(receipt\.verdict === "no-evidence" && d\.supports\)/if (receipt.verdict === "no-evidence")/'
 mutate "strong support also asks the judge" src/provenance.ts 's/const WEAK_SUPPORT = 0\.8;/const WEAK_SUPPORT = 1.1;/'
+mutate "no recency tiebreak between equal lines" src/provenance.ts 's/ \|\| gap\(a\) - gap\(b\);/;/'
 mutate "zero-facts gate removed from live-check" scripts/live-check.ts 's/if \(facts\.length === 0\) die\(3/if (false) die(3/'
 mutate "search scope not recorded on the receipt" src/provenance.ts 's/receipt = \{ \.\.\.receipt, scope: scopeOf\(\[\.\.\.seen\.values\(\)\], methods, window\) \};//'
 mutate "review page hides the search scope" src/page.ts 's/\$\{scope\(r\)\}\n//'

@@ -49,13 +49,19 @@ const supportIn = (fact: Fact, conv: Conversation, ctx: Ctx, loose = false) =>
   findSupport(fact.text, conv.utterances, ctx.ownerNames, loose, (label) => speakerKind(ctx.tv, label));
 
 // Pure: facts + the conversations that might have produced them -> receipt.
-// A line attributed to the wearer beats any other; then the lowest TV signal, then the best match. A fact the wearer really said
-// stays supported even when the same words also played on TV.
+// A line attributed to the wearer beats any other; then the lowest TV signal, then the best match, then the line spoken closest to
+// when Bee wrote the fact. A fact the wearer really said stays supported even when the same words also played on TV.
 export function assess(fact: Fact, conversations: Conversation[], ctx: Ctx): Receipt {
   type Pick = { conv: Conversation; support: Support; tv: ReturnType<typeof tvLikelihood> };
+  const created = toMs(fact.created_at);
+  // time between the line and the fact; a line with no time sorts last
+  const gap = (p: Pick) => {
+    const at = toMs(p.conv.utterances[p.support.index]?.spoken_at) ?? toMs(p.conv.start_time);
+    return created === null || at === null ? Number.MAX_SAFE_INTEGER : Math.abs(created - at);
+  };
   const better = (a: Pick, b: Pick) => {
     const self = (p: Pick) => (p.support.attribution.kind === "self" ? 0 : 1);
-    return self(a) - self(b) || a.tv.score - b.tv.score || b.support.score - a.support.score;
+    return self(a) - self(b) || a.tv.score - b.tv.score || b.support.score - a.support.score || gap(a) - gap(b);
   };
   let pick: Pick | null = null;
   for (const conv of conversations) {

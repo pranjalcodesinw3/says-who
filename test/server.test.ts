@@ -257,3 +257,21 @@ test("demo Bee: completeTodo plus reconcile deletes the fact from the demo Bee i
   assert.equal(d.ledger.get(2)!.decision, "forgotten");
   assert.ok(await d.bee.getFact(3), "only the ticked fact left");
 });
+
+import { gapText, slip as slipOf } from "../src/page.ts";
+
+test("receipts print how long before Bee wrote the fact the line was heard", async () => {
+  const d = await buildDemo({});
+  const rows = d.ledger.all();
+  const lawyer = d.ledger.get(2)!;
+  assert.match(hero(rows), /<span>Heard<\/span><b>[^<]+<\/b><small class="gap">19 min before Bee wrote it<\/small>/);
+  assert.match(slipOf(lawyer), /<dt>When<\/dt><dd>[^<]+<small class="gap">19 min before Bee wrote it<\/small>/);
+  assert.match(slipOf(d.ledger.get(1)!), /55 min before Bee wrote it/);
+  const pilot = d.ledger.get(3)!;
+  assert.equal(pilot.spokenAt, null);
+  assert.ok(!/Bee wrote it/.test(slipOf(pilot)), "no line, no gap");
+  assert.equal(gapText({ spokenAt: 1_000_000 + 5 * 60_000, factCreatedAt: 1_000_000 }), "5 min after Bee wrote it");
+  assert.equal(gapText({ spokenAt: 0, factCreatedAt: 40 * 3_600_000 }), "40 h before Bee wrote it");
+  assert.equal(gapText({ spokenAt: 0, factCreatedAt: 90 * 60_000 }), "1 h 30 min before Bee wrote it");
+  assert.equal(gapText({ spokenAt: null, factCreatedAt: 1 }), null);
+});

@@ -39,6 +39,19 @@ function attribution(r: Row): string {
         <div class="mine ${r.attribution ?? ""}"><span>Says Who reads it as</span><b>${read}</b><small>${esc(r.attributionWhy ?? "")}</small></div>
       </div>`;
 }
+// How long before (or after) Bee wrote the fact the line was spoken: timing evidence printed on the receipt.
+export function gapText(r: Pick<Row, "spokenAt" | "factCreatedAt">): string | null {
+  if (r.spokenAt === null || r.factCreatedAt === null) return null;
+  const mins = Math.round((r.factCreatedAt - r.spokenAt) / 60_000);
+  const n = Math.abs(mins);
+  if (n === 0) return "the same minute Bee wrote it";
+  const span = n < 60 ? `${n} min` : n < 48 * 60 ? `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ""}` : `${Math.round(n / 1440)} days`;
+  return `${span} ${mins > 0 ? "before" : "after"} Bee wrote it`;
+}
+const gapTag = (r: Row) => {
+  const g = gapText(r);
+  return g ? `<small class="gap">${g}</small>` : "";
+};
 const shortTime = (ms: number) => new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 // The search scope: which conversations were read, when they started, how they were found, and the time window.
@@ -78,7 +91,7 @@ export function slip(r: Row): string {
   const evidence = r.quote
     ? `<dl class="ev">
         <dt>Heard</dt><dd class="quote">&ldquo;${esc(r.quote)}&rdquo;</dd>
-        <dt>When</dt><dd>${esc(time(r.spokenAt))}</dd>
+        <dt>When</dt><dd>${esc(time(r.spokenAt))}${gapTag(r)}</dd>
         <dt>Conversation</dt><dd>${r.conversationId ?? "none"}</dd>
       </dl>
       ${attribution(r)}`
@@ -143,7 +156,7 @@ export function hero(rows: Row[], opts: { demo?: boolean } = {}): string {
     ? `<div class="trio">
       <div><span>Bee's speaker label</span><b>${esc(unknown ? "Unknown" : r.speaker!)}</b></div>
       <div><span>Says Who reads it as</span><b>${r.attribution ? READS[r.attribution] : "No line to read"}</b></div>
-      <div><span>Heard</span><b>${esc(time(r.spokenAt))}</b></div>
+      <div><span>Heard</span><b>${esc(time(r.spokenAt))}</b>${gapTag(r)}</div>
     </div>`
     : "";
   const why = r.verdict === "supported" ? "" : `<p class="why1">${esc(r.attributionWhy ?? r.reasons[0] ?? "")}</p>`;
@@ -215,6 +228,7 @@ main{max-width:560px;margin:0 auto}
 .hero .trio>div{background:#f3f4f1;padding:8px 12px;min-width:0}
 .hero .trio span{display:block;color:#47453f;font-size:13px}
 .hero .trio b{display:block;font:600 15px/1.4 var(--font-mono);overflow-wrap:anywhere}
+.hero .trio .gap{display:block;color:#47453f;font-size:13px}
 .hero .go{display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap}
 .hero .stamp{position:static;display:inline-block;max-width:none;transform:rotate(-2deg)}
 .hero .why1{margin:0;flex:1 1 240px;font-size:14px;color:#161513}
@@ -277,6 +291,7 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .ev{display:grid;grid-template-columns:104px minmax(0,1fr);gap:4px 12px;margin:0}
 .ev dt{color:var(--ink-soft);font-size:13px;padding-top:1px}
 .ev dd{margin:0;overflow-wrap:anywhere}
+.ev .gap{display:block;color:var(--ink-soft);font-size:13px}
 .quote{font-weight:500}
 .attr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--paper-edge);border:1px solid var(--paper-edge);margin:12px 0 0}
 .attr>div{background:var(--paper);padding:8px 12px;min-width:0}

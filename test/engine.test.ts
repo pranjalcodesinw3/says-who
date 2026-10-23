@@ -184,3 +184,17 @@ test("an Unknown-labelled line in a TV-like room is unattributed, not likely-tv:
   assert.equal(r.verdict, "unattributed");
   assert.ok(r.reasons.some((x) => /Unknown/.test(x)));
 });
+
+test("recency: the same wearer line in two conversations is credited to the one closest to when Bee wrote the fact", () => {
+  const created = 1_800_000_000_000;
+  const line = "I switched to oat milk this week because the dairy stuff was upsetting my stomach.";
+  const convo = (id: number, at: number) => ({ id, start_time: at, end_time: at + 60_000, utterances: [{ id: id * 10, speaker: "Unknown", text: line, spoken_at: at, start: null }] });
+  const older = convo(501, created - 40 * 3_600_000);
+  const recent = convo(502, created - 10 * 60_000);
+  const fact = { ...FACT_OAT, created_at: created };
+  const r = assess(fact, [older, recent], ctx);
+  assert.equal(r.verdict, "supported");
+  assert.equal(r.conversationId, 502, "the older conversation is listed first and still loses");
+  assert.equal(r.spokenAt, created - 10 * 60_000);
+  assert.equal(assess(fact, [recent, older], ctx).conversationId, 502, "order of the candidates does not matter");
+});
