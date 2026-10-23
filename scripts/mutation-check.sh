@@ -9,12 +9,11 @@ restore() { [ -n "$cur_file" ] && cp "$cur_bak" "$cur_file"; }
 trap restore EXIT
 
 suite() { env -u AWS_BEARER_TOKEN_BEDROCK node --disable-warning=ExperimentalWarning --test test/*.test.ts 2>&1; }
-fails() { suite | grep -E "^ℹ fail" | awk '{print $3}'; }
 status=0
 
-base=$(fails)
+base_out=$(suite); base=$(echo "$base_out" | grep -E "^ℹ fail" | awk '{print $3}')
 echo "baseline: fail=$base"
-[ "$base" = "0" ] || { echo "baseline suite is not green, refusing to mutate"; exit 1; }
+[ "$base" = "0" ] || { echo "baseline suite is not green, refusing to mutate"; echo "$base_out" | grep -E "^✖" | sort -u | sed 's/^/    red: /'; exit 1; }
 
 mutate() { # name file perl-expression
   local name=$1 file=$2 expr=$3
@@ -26,8 +25,9 @@ mutate() { # name file perl-expression
   echo "$out" | grep -E "^✖" | sort -u | head -6 | sed 's/^/    red: /'
   [ "${red:-0}" -gt 0 ] || { echo "  SURVIVED: the suite cannot see this bug"; status=1; }
   cp "$cur_bak" "$file"
-  local green; green=$(fails)
+  local green_out green; green_out=$(suite); green=$(echo "$green_out" | grep -E "^ℹ fail" | awk '{print $3}')
   echo "restored: fail=$green"
+  [ "$green" = "0" ] || echo "$green_out" | grep -E "^✖" | sort -u | sed 's/^/    red after restore: /'
   [ "$green" = "0" ] || status=1
   cur_file=""
 }
