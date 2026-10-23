@@ -1,4 +1,5 @@
-// Optional tie-breaker for borderline lexical matches. Off unless RECEIPTS_JUDGE=bedrock; the heuristic verdict is the default.
+// Tie-breaker for borderline lexical matches. On whenever AWS_BEARER_TOKEN_BEDROCK is set; RECEIPTS_JUDGE=none turns it off.
+// Without a key the word-match verdict stands alone.
 // Calls Amazon Bedrock through its OpenAI-compatible "mantle" endpoint (chat completions), model openai.gpt-oss-120b.
 // Env NAMES read here: RECEIPTS_JUDGE (none | bedrock), RECEIPTS_BEDROCK_MODEL_ID (optional), AWS_REGION (optional, default us-east-1),
 // AWS_BEARER_TOKEN_BEDROCK (Bedrock API key, read from env only, sent as a bearer header, never logged).
@@ -65,10 +66,10 @@ export function bedrockJudge(opts: { modelId?: string; region?: string; bearer?:
 }
 
 export function judgeFromEnv(env: Record<string, string | undefined> = process.env): Judge | undefined {
-  const kind = (env.RECEIPTS_JUDGE ?? "none").trim().toLowerCase();
+  const bearer = env.AWS_BEARER_TOKEN_BEDROCK;
+  const kind = (env.RECEIPTS_JUDGE ?? (bearer ? "bedrock" : "none")).trim().toLowerCase();
   if (kind === "none" || kind === "") return undefined;
   if (kind !== "bedrock") throw new Error(`RECEIPTS_JUDGE must be none or bedrock, got "${kind}"`);
-  const bearer = env.AWS_BEARER_TOKEN_BEDROCK;
   if (!bearer) throw new Error("RECEIPTS_JUDGE=bedrock needs AWS_BEARER_TOKEN_BEDROCK");
   return bedrockJudge({ modelId: env.RECEIPTS_BEDROCK_MODEL_ID, region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION, bearer });
 }

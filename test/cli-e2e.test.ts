@@ -23,7 +23,8 @@ test("once -> wrist reminders -> tick -> forget, across the real client and a su
     todos: [] as { id: number; text: string; completed: boolean }[],
   };
   writeFileSync(statePath, JSON.stringify(state));
-  const env = { ...process.env, BEE_BIN: fake, FAKE_BEE_STATE: statePath, RECEIPTS_DB: join(dir, "ledger.db") };
+  // RECEIPTS_JUDGE=none: this test pins the word-match engine across the process boundary, with or without a Bedrock key in the shell
+  const env = { ...process.env, BEE_BIN: fake, FAKE_BEE_STATE: statePath, RECEIPTS_DB: join(dir, "ledger.db"), RECEIPTS_JUDGE: "none" };
   const run = (...args: string[]) => spawnSync("node", ["--disable-warning=ExperimentalWarning", cli, ...args], { env, encoding: "utf8" });
   const read = () => JSON.parse(readFileSync(statePath, "utf8")) as typeof state;
 

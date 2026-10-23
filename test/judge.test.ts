@@ -64,9 +64,10 @@ test("bedrock judge sends a deterministic chat-completions request with no crede
   await assert.rejects(bedrockJudge({ send: async () => ({ choices: [{ message: { content: null } }] }) }).decide(probe), /no JSON object/);
 });
 
-test("judge is off by default and fails loudly on a half-set environment", () => {
+test("judge is on whenever the Bedrock key is set, off without it or with RECEIPTS_JUDGE=none, and fails loudly on a half-set environment", () => {
   assert.equal(judgeFromEnv({}), undefined);
-  assert.equal(judgeFromEnv({ AWS_BEARER_TOKEN_BEDROCK: "x" }), undefined);
+  assert.equal(judgeFromEnv({ AWS_BEARER_TOKEN_BEDROCK: "x" })?.name, "bedrock");
+  assert.equal(judgeFromEnv({ AWS_BEARER_TOKEN_BEDROCK: "x", RECEIPTS_JUDGE: "none" }), undefined);
   assert.equal(judgeFromEnv({ RECEIPTS_JUDGE: "none" }), undefined);
   assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "bedrock" }), /AWS_BEARER_TOKEN_BEDROCK/);
   assert.throws(() => judgeFromEnv({ RECEIPTS_JUDGE: "gpt" }), /none or bedrock/);

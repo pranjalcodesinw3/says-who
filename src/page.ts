@@ -1,5 +1,5 @@
 import type { Row } from "./ledger.ts";
-import type { Verdict } from "./provenance.ts";
+import { judgeNoteOf, type Verdict } from "./provenance.ts";
 import { todoText } from "./watch.ts";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -54,6 +54,15 @@ function scope(r: Row): string {
   return `<details class="scope"${r.verdict === "no-evidence" ? " open" : ""}><summary>Searched ${n} conversation${n === 1 ? "" : "s"}</summary><dl class="ev">${list}${window}${how}</dl></details>`;
 }
 
+// The judge that read the line, by its product name. Shown as its own labelled row, never buried in the reason list.
+const JUDGES: Record<string, string> = { bedrock: "Amazon Bedrock" };
+function checkedBy(r: Row): string {
+  const j = judgeNoteOf(r);
+  if (!j) return "";
+  const m = /^(supports|does not support)(?: \((.*)\))?$/.exec(j.note);
+  return `<p class="judge"><span>Checked by ${esc(JUDGES[j.judge] ?? j.judge)}</span><b${m?.[1] === "does not support" ? ' class="no"' : ""}>${esc(m ? (m[1] === "supports" ? "Supports the fact" : "Does not support the fact") : j.note)}</b>${m?.[2] ? `<small>${esc(m[2])}</small>` : ""}</p>`;
+}
+
 export function slip(r: Row): string {
   const stamp = STAMP[r.verdict];
   const open = r.decision === null;
@@ -75,7 +84,8 @@ export function slip(r: Row): string {
       ${attribution(r)}`
     : `<p class="none">No evidence found. Says Who read ${r.searched} conversation${r.searched === 1 ? "" : "s"} around this fact and none contains the line. Exactly where it looked is listed below.</p>`;
   // the "no evidence" sentence is already the slip's headline, so the reason list keeps only what adds to it
-  const shown = r.verdict === "no-evidence" ? r.reasons.filter((x) => !/^no evidence found/.test(x)) : r.reasons;
+  // and the judge's note has its own row
+  const shown = (judgeNoteOf(r) ? r.reasons.slice(1) : r.reasons).filter((x) => r.verdict !== "no-evidence" || !/^no evidence found/.test(x));
   const reasons = shown.length ? `<ul class="why">${shown.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
   return `<article class="slip ${stamp.cls}" id="fact-${r.factId}">
     <header><span>Fact ${r.factId}</span><span>${esc(time(r.factCreatedAt))}</span></header>
@@ -84,6 +94,7 @@ export function slip(r: Row): string {
     <hr>
     ${related}
     ${evidence}
+    ${checkedBy(r)}
     ${scope(r)}
     <div class="tv"><span>TV signal</span><div class="gauge${r.tvScore >= 0.5 ? " hot" : ""}" role="img" aria-label="TV signal ${r.tvScore.toFixed(2)} of 1, the likely TV line is 0.50">${Array.from({ length: 10 }, (_, i) => `<b class="${i < Math.round(r.tvScore * 10) ? "on" : ""}"></b>`).join("")}</div><span class="num">${r.tvScore.toFixed(2)}</span></div>
     ${reasons}
@@ -153,6 +164,7 @@ export function hero(rows: Row[], opts: { demo?: boolean } = {}): string {
     ${line}
     ${trio}
     <div class="go"><div class="stamp ${stamp.cls}">${stamp.label}</div>${why}</div>
+    ${checkedBy(r)}
     ${onWrist ? "" : `<p class="step"><b>3</b>You decide</p>`}
     <div class="act">${act}</div>
     </div>${onWrist ? wrist(r, opts.demo ?? false) : ""}</div>
@@ -246,7 +258,8 @@ main.demo{max-width:1200px;display:block}
 .demo .slip h2{padding-right:0}
 .demo .stamp{position:static;display:inline-block;align-self:flex-start;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}
 .demo .attr{grid-template-columns:minmax(0,1fr)}
-@media (max-width:1023px){.demo #slips{grid-template-columns:minmax(0,1fr)}}
+.demo #slips.even{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1023px){.demo #slips,.demo #slips.even{grid-template-columns:minmax(0,1fr)}}
 h1{font:700 28px/1 var(--font-display);margin:0 0 8px;letter-spacing:.03em;text-transform:uppercase}
 .lede{color:var(--chalk-soft);margin:0 0 24px}
 .tape{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#3a3731;border:1px solid #3a3731;border-radius:2px;margin:0 0 24px}
@@ -284,6 +297,11 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 .scope summary{cursor:pointer;color:var(--ink-soft);font-size:13px;padding:4px 0}
 .scope summary:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
 .scope .ev{margin-top:8px;font-size:13px}
+.judge{margin:12px 0 0;padding:8px 0 0;border-top:1px dashed var(--paper-edge);font-size:13px}
+.judge span{display:block;color:var(--ink-soft);margin-bottom:2px}
+.judge b{font-weight:600;color:var(--ok)}.judge b.no{color:var(--bad)}
+.judge small{display:block;color:var(--ink-soft);font-size:13px;overflow-wrap:anywhere}
+.hero .judge{max-width:560px;border-top-color:var(--paper-edge)}
 .why{margin:8px 0 0;padding-left:16px;color:var(--ink-soft);font-size:13px}
 .status{margin:12px 0 0;font-weight:500}
 .actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
@@ -323,7 +341,7 @@ ${tape(rows)}
 <ol id="feed" class="feed"><li class="feed-wait">Waiting for the next fact Bee writes. It lands here with the line that caused it.</li></ol>
 </section>
 </div>`}
-<div id="slips">
+<div id="slips"${rows.length % 3 !== 0 && rows.length % 2 === 0 ? ' class="even"' : ""}>
 ${body}
 </div>
 </main>

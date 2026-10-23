@@ -34,6 +34,14 @@ export type Receipt = {
 
 export type Ctx = { ownerNames: string[]; tv: TvContext; judge?: Judge };
 
+// The judge's verdict rides first in reasons[] as "judge <name>: supports (why)". The page reads it back with judgeNoteOf.
+export const JUDGE_NOTE_PREFIX = "judge ";
+export function judgeNoteOf(r: Pick<Receipt, "reasons">): { judge: string; note: string } | null {
+  const first = r.reasons[0] ?? "";
+  const m = first.startsWith(JUDGE_NOTE_PREFIX) ? /^(\S+): (.+)$/.exec(first.slice(JUDGE_NOTE_PREFIX.length)) : null;
+  return m ? { judge: m[1]!, note: m[2]! } : null;
+}
+
 const HOUR = 3_600_000;
 const WEAK_SUPPORT = 0.8;
 
@@ -123,7 +131,7 @@ export async function refine(fact: Fact, conversations: Conversation[], ctx: Ctx
       factText: fact.text, utterance: us[pick.index]!.text, speaker: us[pick.index]!.speaker,
       before: us[pick.index - 1]?.text ?? null, after: us[pick.index + 1]?.text ?? null,
     });
-    const note = `judge ${judge.name}: ${d.supports ? "supports" : "does not support"}${d.reason ? ` (${d.reason})` : ""}`;
+    const note = `${JUDGE_NOTE_PREFIX}${judge.name}: ${d.supports ? "supports" : "does not support"}${d.reason ? ` (${d.reason})` : ""}`;
     if (receipt.verdict === "no-evidence" && d.supports) {
       const r = build({ factId: fact.id, factText: fact.text, factCreatedAt: receipt.factCreatedAt, searched: receipt.searched, scope: receipt.scope }, pick.conv, pick.support, tvLikelihood(pick.conv, pick.index, ctx.tv));
       return { ...r, reasons: [note, ...r.reasons] };

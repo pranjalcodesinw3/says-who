@@ -8,6 +8,7 @@ import { buildDemo } from "../src/demo.ts";
 import { openLedger } from "../src/ledger.ts";
 import { startServer } from "../src/server.ts";
 import type { Deps } from "../src/watch.ts";
+import { renderPage } from "../src/page.ts";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
@@ -23,8 +24,11 @@ function http(port: number, method: string, path: string, headers: Record<string
   });
 }
 
+const keyed = Boolean(process.env.AWS_BEARER_TOKEN_BEDROCK);
+const slipsExpected = keyed ? 4 : 3;
+
 test("the demo account builds a supported, a heard-on-TV and a no-evidence receipt with real quotes", async () => {
-  const d = await buildDemo();
+  const d = await buildDemo({});
   const rows = d.ledger.all().sort((a, b) => a.factId - b.factId);
   assert.deepEqual(rows.map((r) => r.verdict), ["supported", "likely-tv", "no-evidence"]);
   assert.match(rows[0]!.quote!, /oat milk/);
@@ -43,7 +47,7 @@ test("/demo renders the three receipts side by side with the hero, and its butto
     const page = await http(port, "GET", "/demo");
     assert.equal(page.status, 200);
     assert.match(page.body, /<main class="demo"/);
-    assert.equal((page.body.match(/<article class="slip/g) ?? []).length, 3);
+    assert.equal((page.body.match(/<article class="slip/g) ?? []).length, slipsExpected);
     for (const needle of ["Receipt found", "Likely TV", "No evidence found", "Receipt of the day", "Prefers oat milk", "criminal lawyer", "Demo", "Reset the demo"]) assert.ok(page.body.includes(needle), `demo page is missing "${needle}"`);
     const at = (n: number) => page.body.indexOf(`id="fact-${n}"`);
     assert.ok(at(1) > 0 && at(1) < at(2) && at(2) < at(3), "supported, then TV, then no evidence, left to right");
@@ -84,8 +88,37 @@ test("`receipts demo` serves the demo with no Bee login and `/` goes straight to
     const root = await http(port, "GET", "/");
     assert.equal(root.status, 302);
     assert.equal(root.location, "/demo");
-    assert.equal((await http(port, "GET", "/demo")).body.match(/<article class="slip/g)?.length, 3);
+    assert.equal((await http(port, "GET", "/demo")).body.match(/<article class="slip/g)?.length, slipsExpected);
   } finally {
     child.kill();
+  }
+});
+
+test("without a Bedrock key the demo is three facts and names no judge", async () => {
+  const d = await buildDemo({});
+  assert.equal(d.ledger.all().length, 3);
+  assert.equal(d.ctx.judge, undefined);
+  const html = renderPage(d.ledger.all(), { base: "/demo" });
+  assert.ok(!html.includes("Amazon Bedrock"));
+});
+
+// LIVE: skipped without AWS_BEARER_TOKEN_BEDROCK. Fact 4 is a paraphrase word matching cannot receipt; a real Bedrock call does.
+test("live: with the key on, Amazon Bedrock receipts the jazz fact and the page says who checked it", { skip: !keyed }, async () => {
+  const d = await buildDemo();
+  const rows = d.ledger.all().sort((a, b) => a.factId - b.factId);
+  assert.equal(rows.length, 4);
+  const jazz = rows[3]!;
+  assert.equal(jazz.factText, "Enjoys jazz");
+  assert.equal(jazz.verdict, "supported", jazz.reasons.join(" | "));
+  assert.match(jazz.quote!, /Jazz records/);
+  assert.ok(jazz.reasons[0]!.startsWith("judge bedrock: supports"), jazz.reasons[0] ?? "no reason");
+  assert.equal(jazz.todoId, null, "a supported fact sends nothing to the wrist");
+  const server = await startServer({ ledger: openLedger(":memory:") } as Deps, 0);
+  try {
+    const page = await http((server.address() as { port: number }).port, "GET", "/demo");
+    assert.match(page.body, /Checked by Amazon Bedrock/);
+    assert.match(page.body, /id="fact-4"[\s\S]*?Checked by Amazon Bedrock<\/span><b>Supports the fact<\/b>/);
+  } finally {
+    server.close();
   }
 });

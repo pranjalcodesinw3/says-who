@@ -1,6 +1,7 @@
 // Demo account: invented conversations and facts run through the real engine, ledger and review page, so the page can be tried with no Bee login.
 // The data is invented; the receipts, verdicts, attribution, read-backs and buttons are the product's own code paths.
 import { NotFound, type Bee, type Changes, type Conversation, type Fact, type Todo } from "./bee.ts";
+import { judgeFromEnv } from "./judge.ts";
 import { openLedger } from "./ledger.ts";
 import { tvContext } from "./tv.ts";
 import { tick, type Deps } from "./watch.ts";
@@ -11,7 +12,9 @@ export type DemoDeps = Deps & { bee: DemoBee };
 
 export const DEMO_OWNER = "Sam Rivera";
 
-export function demoBee(now = Date.now()): DemoBee {
+// jazz: a fourth fact whose only evidence is a paraphrase ("Jazz records are all I play"). Word matching alone finds no receipt for it;
+// the Bedrock judge reads the line and turns it into one, so the demo only carries it when the judge is on.
+export function demoBee(now = Date.now(), opts: { jazz?: boolean } = {}): DemoBee {
   const min = 60_000;
   const u = (id: number, speaker: string, text: string, at: number) => ({ id, speaker, text, spoken_at: at, start: null });
   const kitchen = now - 95 * min;
@@ -41,11 +44,21 @@ export function demoBee(now = Date.now()): DemoBee {
       utterances: [u(21, "Unknown", "Can you send the invoice to accounting before five, they close the books on Friday.", now - 180 * min), u(22, "Marcus", "Sure, I will forward it now and copy you on the thread.", now - 179 * min)],
     },
   ];
+  const evening = now - 150 * min;
+  if (opts.jazz) conversations.push({
+    id: 4104, start_time: evening, end_time: evening + 6 * min,
+    utterances: [
+      u(31, "Unknown", "Honestly I put on the radio.", evening),
+      u(32, "Unknown", "Jazz records are all I play in the evenings.", evening + min),
+      u(33, "Unknown", "My neighbours complain about it.", evening + 2 * min),
+    ],
+  });
   const facts = new Map<number, Fact>([
     [1, { id: 1, text: "Prefers oat milk", tags: [], created_at: now - 40 * min, confirmed: false }],
     [2, { id: 2, text: "Sam is a criminal lawyer", tags: [], created_at: now - 30 * min, confirmed: false }],
     [3, { id: 3, text: "Holds a commercial pilot licence", tags: [], created_at: now - 20 * min, confirmed: false }],
   ]);
+  if (opts.jazz) facts.set(4, { id: 4, text: "Enjoys jazz", tags: [], created_at: now - 10 * min, confirmed: false });
   const todos = new Map<number, Todo>();
   let nextTodo = 9001;
   let calls = 0;
@@ -68,9 +81,13 @@ export function demoBee(now = Date.now()): DemoBee {
   };
 }
 
-export async function buildDemo(): Promise<DemoDeps> {
-  const d: DemoDeps = { bee: demoBee(), ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: DEMO_OWNER.split(" "), tv: tvContext(DEMO_OWNER) }, alarmLeadMs: 0 };
+// With AWS_BEARER_TOKEN_BEDROCK set, the demo runs the Amazon Bedrock judge exactly as a live account does.
+export async function buildDemo(env: Record<string, string | undefined> = process.env): Promise<DemoDeps> {
+  const judge = judgeFromEnv(env);
+  const bee = demoBee(Date.now(), { jazz: judge !== undefined });
+  const d: DemoDeps = { bee, ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: DEMO_OWNER.split(" "), tv: tvContext(DEMO_OWNER), judge }, alarmLeadMs: 0 };
+  const facts = (await bee.listFacts({ unconfirmed: true })).length;
   const r = await tick(d);
-  if (r.failed > 0 || d.ledger.all().length !== 3) throw new Error(`demo account did not build: ${JSON.stringify(r)}`);
+  if (r.failed > 0 || d.ledger.all().length !== facts) throw new Error(`demo account did not build: ${JSON.stringify(r)}`);
   return d;
 }
