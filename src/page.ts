@@ -188,7 +188,7 @@ main.demo{max-width:1200px;display:block}
 .demo .slip>.status,.demo .slip>.actions{margin-top:auto}
 .demo .slip>.status+.actions{margin-top:16px}
 .demo .slip h2{padding-right:0}
-.demo .stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}
+.demo .stamp{position:static;display:inline-block;align-self:flex-start;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}
 .demo .attr{grid-template-columns:minmax(0,1fr)}
 @media (max-width:1023px){.demo #slips{grid-template-columns:minmax(0,1fr)}}
 h1{font:700 28px/1 var(--font-display);margin:0 0 8px;letter-spacing:.03em;text-transform:uppercase}
