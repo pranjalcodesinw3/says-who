@@ -6,3 +6,4 @@ node_modules
 .progress/
 .uicraft-read.json
 recordings/
+.DS_Store
