@@ -75,7 +75,7 @@ test("an empty real ledger offers the demo in one click", async () => {
   }
 });
 
-test("`receipts demo` serves the demo with no Bee login and `/` goes straight to it", async () => {
+test("`says-who demo` serves the demo with no Bee login and `/` goes straight to it", async () => {
   const child = spawn("node", ["--disable-warning=ExperimentalWarning", cli, "demo"], { env: { ...process.env, BEE_BIN: "/nonexistent/bee", RECEIPTS_PORT: "0" } });
   try {
     const url = await new Promise<string>((resolve, reject) => {

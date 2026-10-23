@@ -1,6 +1,6 @@
 # Demo day procedure
 
-One fault, played live: a TV clip near the wearer's Watch, Bee writes a fact from it, Says Who shows the line that caused it, the doubtful fact lands on the wrist as a reminder, and a tick forgets it with a read-back. Every step below runs against the real Bee account through the real `bee` CLI, and the fact on screen is the one Bee wrote itself.
+One fault, played live: a TV clip near the wearer's Watch, Bee writes a fact from it, Says Who shows the exact line Bee heard, the doubtful fact lands on the wrist as a reminder, and a tick forgets it with a read-back. Every step below runs against the real Bee account through the real `bee` CLI, and the fact on screen is the one Bee wrote itself.
 
 ## Before the room fills (10 minutes)
 

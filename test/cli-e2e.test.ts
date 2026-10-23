@@ -1,4 +1,4 @@
-// FIXTURE end-to-end: `receipts once` -> real createBeeClient -> subprocess (test/fixtures/fake-bee-cli.mjs) -> JSON -> ledger.
+// FIXTURE end-to-end: `says-who once` -> real createBeeClient -> subprocess (test/fixtures/fake-bee-cli.mjs) -> JSON -> ledger.
 // Proves argument shapes and parsing across the process boundary; the data is invented.
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -20,3 +20,10 @@ test("the README states exactly as many mutants as scripts/mutation-check.sh def
   assert.ok(defined > 10, "the script defines mutants");
   assert.equal(claimed, defined);
 });
+
+test("the README states exactly as many tests as test/*.test.ts declares", () => {
+  const declared = readdirSync(`${root}test`).filter((f) => f.endsWith(".test.ts")).reduce((n, f) => n + (readFileSync(`${root}test/${f}`, "utf8").match(/^test\(/gm) ?? []).length, 0);
+  const claimed = Number(/`npm test` runs (\d+) tests/.exec(readFileSync(`${root}README.md`, "utf8"))?.[1]);
+  assert.ok(declared > 50, "found the tests");
+  assert.equal(claimed, declared);
+});

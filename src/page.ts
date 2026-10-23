@@ -202,7 +202,7 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number; ba
   const body = opts.error
     ? `<p class="empty">The ledger could not be read: ${esc(opts.error)}</p>`
     : rows.length === 0
-      ? `<div class="empty" id="empty"><p>The tape is blank. Start <code>receipts watch</code> while Bee is listening and each new fact prints here with the line that caused it.</p><a class="btn primary" href="/demo">Open the demo</a></div>`
+      ? `<div class="empty" id="empty"><p>The tape is blank. Start <code>npm run watch</code> while Bee is listening and each new fact prints here with the exact line Bee heard.</p><a class="btn primary" href="/demo">Open the demo</a></div>`
       : rows.map(slip).join("\n");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -347,13 +347,13 @@ code{color:var(--chalk)}
 <header class="top"><h1>Says Who</h1>
 ${demo
     ? `<p class="lede"><span class="tag">Demo</span> Bee writes a fact, Says Who finds the line, your wrist decides. A sample Bee account, read by the same engine and the same verified write paths as a real one. Tick the reminder on the wrist.</p><div class="demo-actions"><button class="btn ghost-desk" data-reset="1">Reset the demo</button></div>`
-    : `<p class="lede">Every fact Bee wrote about you, with the line that caused it.</p><div class="demo-actions"><a class="btn ghost-desk" href="/demo">Open the demo</a></div>`}</header>
+    : `<p class="lede">Every fact Bee wrote about you, with the exact line Bee heard.</p><div class="demo-actions"><a class="btn ghost-desk" href="/demo">Open the demo</a></div>`}</header>
 ${hero(rows, { demo })}
 ${demo ? "" : `<div class="rail">
 ${tape(rows)}
 <section class="live" aria-label="Live provenance feed">
 <p class="live-head"><span class="dot" id="dot"></span><span id="live-state">Connecting to the ledger</span></p>
-<ol id="feed" class="feed"><li class="feed-wait">Waiting for the next fact Bee writes. It lands here with the line that caused it.</li></ol>
+<ol id="feed" class="feed"><li class="feed-wait">Waiting for the next fact Bee writes. It lands here with the exact line Bee heard.</li></ol>
 </section>
 </div>`}
 <div id="slips"${rows.length % 3 !== 0 && rows.length % 2 === 0 ? ' class="even"' : ""}>
