@@ -2,9 +2,10 @@
 import { realBee, type Fact } from "./bee.ts";
 import { buildDemo } from "./demo.ts";
 import { judgeFromEnv } from "./judge.ts";
-import { openLedger } from "./ledger.ts";
+import { openLedger, type Row } from "./ledger.ts";
 import { contentTokens } from "./match.ts";
 import { receiptFor, type Ctx } from "./provenance.ts";
+import { reportMarkdown } from "./report.ts";
 import { startServer } from "./server.ts";
 import { tvContext } from "./tv.ts";
 import { tick, watch, type Deps } from "./watch.ts";
@@ -14,8 +15,8 @@ const USAGE = `says-who <command>
   once              one pass: changed feed -> receipts -> wrist to-dos -> decisions
   watch [--serve]   loop every RECEIPTS_INTERVAL_S (60) seconds, wake on todo-updated; --serve also starts the review page
   review            review page only on http://127.0.0.1:$RECEIPTS_PORT (8790)
-  why "<fact text>" print the receipt for the stored fact that best matches the text
-  report            fact provenance counts and the wearer's decisions from the ledger
+  why [--demo] "<fact text>"   print the receipt for the stored fact that best matches the text (--demo: the sample account, no Bee login)
+  report [--demo] [--md]      fact provenance counts and the wearer's decisions; --md prints a markdown self-review
   demo              sample account with three receipts on http://127.0.0.1:$RECEIPTS_PORT/demo (no Bee login needed)
   receipt <factId>  the stored receipt for one fact as JSON (no Bee login needed)`;
 
@@ -31,8 +32,11 @@ async function deps(): Promise<Deps> {
   return { bee, ledger: openLedger(dbPath), ctx, log };
 }
 
-function report() {
-  const rows = openLedger(dbPath).all();
+function report(rows: Row[], md: boolean) {
+  if (md && rows.length > 0) {
+    process.stdout.write(reportMarkdown(rows));
+    return;
+  }
   if (rows.length === 0) {
     console.log("ledger is empty: run `says-who once` or `says-who watch` against a logged-in Bee first");
     process.exitCode = 1;
@@ -51,8 +55,8 @@ function report() {
   if (forgot + kept > 0) console.log(`  facts Bee wrote that the wearer kept: ${((kept / (forgot + kept)) * 100).toFixed(0)}% of ${forgot + kept} decided`);
 }
 
-async function why(text: string) {
-  const d = await deps();
+async function why(text: string, demo: boolean) {
+  const d = demo ? await buildDemo() : await deps();
   const all = [...(await d.bee.listFacts({})), ...(await d.bee.listFacts({ unconfirmed: true }))];
   if (all.length === 0) throw new Error("This Bee account has zero facts, nothing to explain.");
   const want = new Set(contentTokens(text, d.ctx.ownerNames));
@@ -96,12 +100,14 @@ async function main() {
       log(`review page on http://127.0.0.1:${(s.address() as { port: number }).port}`);
       break;
     }
-    case "why":
-      if (!rest[0]) throw new Error('usage: says-who why "<fact text>"');
-      await why(rest.join(" "));
+    case "why": {
+      const words = rest.filter((a) => a !== "--demo");
+      if (!words[0]) throw new Error('usage: says-who why [--demo] "<fact text>"');
+      await why(words.join(" "), rest.includes("--demo"));
       break;
+    }
     case "report":
-      report();
+      report(rest.includes("--demo") ? (await buildDemo()).ledger.all() : openLedger(dbPath).all(), rest.includes("--md"));
       break;
     case "demo": {
       const s = await startServer(await buildDemo(), port, { demoOnly: true });

@@ -16,12 +16,52 @@ Everything below runs from the Says Who repo root (the folder that contains `ski
 ```bash
 npm run why "criminal lawyer"   # receipt for the stored fact that best matches the text
 npm run report                  # counts by verdict and the owner's decisions so far
+npm run report -- --md          # the same as a markdown self-review: questionable facts before and now, each with its quote
 npm run doctor                  # who is logged in, how many confirmed and pending facts
 npm run once                    # one pass over new facts: receipts, wrist reminders, decisions
 npm run watch                   # same, looping, plus the review page on http://127.0.0.1:8790
 ```
 
 `why` prints one JSON receipt. It exits 1 with a message when the account has no facts or no stored fact shares content words with the text.
+
+Add `--demo` to `why` or `report` to run against the bundled sample account (owner "Sam Rivera", four or three facts) with no Bee login. Use it to show the owner what a receipt looks like before they log in, never to answer about their own facts.
+
+## Worked example
+
+> **Owner:** Is the lawyer fact from the TV?
+
+Run it (here on the sample account; drop `--demo` for the owner's own Bee):
+
+```bash
+npm run why -- --demo "criminal lawyer"
+```
+
+The receipt that comes back, trimmed to the fields the answer uses:
+
+```json
+{
+  "factId": 2,
+  "factText": "Sam is a criminal lawyer",
+  "verdict": "likely-tv",
+  "tvScore": 1,
+  "quote": "He is a criminal lawyer with a reputation for getting his clients out of anything the district attorney throws at them.",
+  "speaker": "Speaker 2",
+  "spokenAt": 1792752194742,
+  "conversationId": 4102,
+  "reasons": [
+    "the line is about someone else (\"he\")",
+    "line spoken by \"Speaker 2\", not the wearer",
+    "3 distinct non-wearer speakers",
+    "scripted cadence: 6 even utterances averaging 20 words",
+    "show cue: dexter, previously on",
+    "quote is third person, not the wearer talking about themselves"
+  ]
+}
+```
+
+> **Agent:** Very likely. Bee heard it at 6:43 PM in conversation 4102: "He is a criminal lawyer with a reputation for getting his clients out of anything the district attorney throws at them.", spoken by Speaker 2, not you. The TV signal is 1.00 of 1: three other voices, scripted cadence, the show cue "previously on" from Dexter, and the line is about "he", not you. Want me to forget fact 2? It is also on your wrist as a reminder; ticking it does the same.
+
+Format `spokenAt` (epoch milliseconds) as a local time. Only run `bee facts delete 2` after the owner says yes, then confirm with `bee facts get 2`.
 
 ## Read the receipt
 

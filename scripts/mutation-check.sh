@@ -61,6 +61,7 @@ mutate "demo-day script accepts an unticked reminder" scripts/forced-fault.sh 's
 mutate "demo-day script skips the gone read-back" scripts/forced-fault.sh 's/if out=\$\("\$BEE" facts get "\$new_id" --json 2>&1\); then/if false; then/'
 mutate "page drops Says Who's reading beside Bee's speaker label" src/page.ts 's/\n      \$\{attribution\(r\)\}//'
 mutate "receipt of the day picks the least doubtful receipt" src/page.ts 's/URGENCY\[b\.verdict\] - URGENCY\[a\.verdict\]/URGENCY[a.verdict] - URGENCY[b.verdict]/'
+mutate "self-review counts forgotten facts as still in Bee" src/report.ts 's/const now = doubtful\.filter\(\(r\) => !gone\(r\)\)\.length;/const now = doubtful.length;/'
 mutate "demo buttons write to the real ledger" src/server.ts 's/d = await \(demo \?\?= buildDemo\(\)\);/d = d0;/'
 mutate "restart forgets receipts that never got a to-do" src/watch.ts 's/\n    await resumePending\(d\);//'
 mutate "restart loses the saved cursor" src/ledger.ts 's/const r = db\.prepare\("SELECT v FROM kv WHERE k = .cursor."\)\.get\(\);\n      return r \? String\(r\.v\) : undefined;/return undefined;/'

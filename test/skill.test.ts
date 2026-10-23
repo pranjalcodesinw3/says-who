@@ -47,3 +47,9 @@ test("receipts.skill is a zip with exactly one entry, receipts/SKILL.md, identic
   assert.deepEqual(list, ["receipts/SKILL.md"]);
   assert.equal(execFileSync("unzip", ["-p", `${root}skills/receipts.skill`, "receipts/SKILL.md"], { encoding: "utf8" }), skill);
 });
+
+test("every flag the skill passes after `npm run X --` is one the CLI reads", () => {
+  const flags = [...skill.matchAll(/npm run [a-z-]+ -- ((?:--[a-z]+ ?)+)/g)].flatMap((m) => m[1]!.trim().split(/\s+/));
+  assert.ok(flags.includes("--demo") && flags.includes("--md"), "found the flags");
+  for (const f of new Set(flags)) assert.ok(cliSrc.includes(`"${f}"`), `cli.ts reads ${f}`);
+});
