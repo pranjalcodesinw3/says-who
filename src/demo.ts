@@ -5,9 +5,13 @@ import { openLedger } from "./ledger.ts";
 import { tvContext } from "./tv.ts";
 import { tick, type Deps } from "./watch.ts";
 
+// The demo Bee also lets the page play the wrist: completeTodo is what a tick on the Watch does to the to-do in Bee.
+export type DemoBee = Bee & { completeTodo(id: number): void };
+export type DemoDeps = Deps & { bee: DemoBee };
+
 export const DEMO_OWNER = "Sam Rivera";
 
-export function demoBee(now = Date.now()): Bee {
+export function demoBee(now = Date.now()): DemoBee {
   const min = 60_000;
   const u = (id: number, speaker: string, text: string, at: number) => ({ id, speaker, text, spoken_at: at, start: null });
   const kitchen = now - 95 * min;
@@ -60,11 +64,12 @@ export function demoBee(now = Date.now()): Bee {
     async getTodo(id) { const t = todos.get(id); if (!t) throw new NotFound("not found"); return t; },
     async listTodos() { return [...todos.values()]; },
     onTodoUpdated() { return () => {}; },
+    completeTodo(id) { const t = todos.get(id); if (!t) throw new NotFound("not found"); todos.set(id, { ...t, completed: true }); },
   };
 }
 
-export async function buildDemo(): Promise<Deps> {
-  const d: Deps = { bee: demoBee(), ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: DEMO_OWNER.split(" "), tv: tvContext(DEMO_OWNER) }, alarmLeadMs: 0 };
+export async function buildDemo(): Promise<DemoDeps> {
+  const d: DemoDeps = { bee: demoBee(), ledger: openLedger(":memory:"), log: () => {}, ctx: { ownerNames: DEMO_OWNER.split(" "), tv: tvContext(DEMO_OWNER) }, alarmLeadMs: 0 };
   const r = await tick(d);
   if (r.failed > 0 || d.ledger.all().length !== 3) throw new Error(`demo account did not build: ${JSON.stringify(r)}`);
   return d;

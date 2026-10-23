@@ -50,11 +50,11 @@ test("/demo renders the three receipts side by side with the hero, and its butto
 
     assert.equal((await http(port, "POST", "/demo/api/facts/2/forget")).status, 403, "write without the header is refused");
     assert.equal((await http(port, "POST", "/demo/api/facts/2/forget", { "x-receipts": "1" })).status, 200);
-    assert.match((await http(port, "GET", "/demo")).body, /Forgotten\. Bee no longer holds this fact \(read back, gone\)/);
+    assert.match((await http(port, "GET", "/demo")).body, /Forgotten \d{1,2}:\d{2} [AP]M, read back from Bee: gone/);
     assert.equal((await http(port, "GET", "/api/receipts")).body, "[]", "the real ledger was not touched");
 
     assert.equal((await http(port, "POST", "/demo/api/reset", { "x-receipts": "1" })).status, 200);
-    assert.ok(!/Forgotten\./.test((await http(port, "GET", "/demo")).body), "reset rebuilds the account");
+    assert.ok(!/Forgotten \d/.test((await http(port, "GET", "/demo")).body), "reset rebuilds the account");
   } finally {
     server.close();
   }

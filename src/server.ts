@@ -1,14 +1,14 @@
 import { createServer, type Server } from "node:http";
-import { confirmFact, forgetFact, type Deps } from "./watch.ts";
+import { confirmFact, forgetFact, reconcile, type Deps } from "./watch.ts";
 import { hero, renderPage, slip, tape } from "./page.ts";
-import { buildDemo } from "./demo.ts";
+import { buildDemo, type DemoDeps } from "./demo.ts";
 
 // Local review page. Reads the ledger only; writes go through the same verified confirm/forget paths the watch loop uses.
 // feedMs: how often the live feed re-reads the ledger. The ledger is a SQLite file the watch loop may write from another process,
 // so the feed polls it instead of relying on in-process events.
 // /demo/* serves a sample account (src/demo.ts) through the same page and the same verified write paths, in its own in-memory ledger.
 export function startServer(d0: Deps, port: number, opts: { feedMs?: number; demoOnly?: boolean } = {}): Promise<Server> {
-  let demo: Promise<Deps> | null = null;
+  let demo: Promise<DemoDeps> | null = null;
   const server = createServer(async (req, res) => {
     let d = d0;
     let base = "";
@@ -67,6 +67,20 @@ export function startServer(d0: Deps, port: number, opts: { feedMs?: number; dem
           }
         }, opts.feedMs ?? 1000);
         req.on("close", () => clearInterval(timer));
+        return;
+      }
+      // The demo wrist: a tick completes the to-do in the demo Bee, then the live loop's reconcile turns it into a verified forget.
+      const t = /^\/api\/todos\/(\d+)\/tick$/.exec(path);
+      if (req.method === "POST" && base && t) {
+        if (req.headers["x-receipts"] !== "1") { res.writeHead(403).end("missing x-receipts header"); return; }
+        const dd = await demo!;
+        const row = dd.ledger.all().find((r) => r.todoId === Number(t[1]));
+        if (!row) { res.writeHead(404).end(`no receipt has to-do ${t[1]}`); return; }
+        dd.bee.completeTodo(row.todoId!);
+        await reconcile(dd);
+        const after = dd.ledger.get(row.factId)!;
+        if (after.decision === null) { res.writeHead(502).end("the tick landed but the fact is still in Bee"); return; }
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(hero([after], { demo: true }));
         return;
       }
       const m = /^\/api\/facts\/(\d+)\/(confirm|forget)$/.exec(path);

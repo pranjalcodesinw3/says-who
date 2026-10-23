@@ -42,7 +42,7 @@ It starts the watch loop with the review page, opens the page in the `deepsurge`
 3. The receipt prints: verdict, the verbatim line, the speaker label, the conversation id, the TV signal with each cue listed, and the search scope (which conversations were read, their times, the window, the method). On the review page the same slip appears at the top with the quote under the fact, and the live tape gets a line.
 4. "Wrist: reminder N" is read back from Bee with `bee todos get`. The reminder text on the Watch asks "Did you say it, or hear it?" over the matching line. Show the Watch.
 5. Tick the reminder on the Watch. The script polls `bee todos get` until `completed` is true, then runs one `says-who once` pass.
-6. The post-condition prints: `bee facts get N` answers not found. The slip on the review page changes to "Forgotten. Bee no longer holds this fact (read back, gone)" without a reload.
+6. The post-condition prints: `bee facts get N` answers not found. The slip on the review page changes to "Forgotten 9:41 PM, read back from Bee: gone" (the time is when the read-back landed) without a reload.
 
 The elapsed seconds between beats 2, 3, 4 and 5 are printed by the script. Read them out as measured on that run.
 

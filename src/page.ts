@@ -1,5 +1,6 @@
 import type { Row } from "./ledger.ts";
 import type { Verdict } from "./provenance.ts";
+import { todoText } from "./watch.ts";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const time = (ms: number | null) =>
@@ -14,10 +15,15 @@ const STAMP: Record<Verdict, { label: string; cls: string }> = {
   contradicts: { label: "Conflict", cls: "bad" },
 };
 
+// Same clock format as the wrist reminder (todoText), so the page and the Watch print the same time.
+const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+const at = (r: Row) => (r.decidedAt === null ? "" : ` ${clock(r.decidedAt)}`);
+
 function status(r: Row): string {
-  if (r.decision === "forgotten" || r.decision === "already-gone") return `<p class="status">Forgotten. Bee no longer holds this fact${r.verifiedGone ? " (read back, gone)" : ""}.</p>`;
-  if (r.decision === "confirmed") return `<p class="status">Confirmed in Bee.</p>`;
-  if (r.decision === "kept-todo-deleted") return `<p class="status">Kept. The wrist to-do was dismissed without a tick.</p>`;
+  if (r.decision === "forgotten" || r.decision === "already-gone")
+    return `<p class="status">${r.verifiedGone ? `Forgotten${at(r)}, read back from Bee: gone.` : `Forgotten${at(r)}. Bee no longer holds this fact.`}</p>`;
+  if (r.decision === "confirmed") return `<p class="status">Confirmed${at(r)}, read back from Bee.</p>`;
+  if (r.decision === "kept-todo-deleted") return `<p class="status">Kept${at(r)}. The wrist to-do was dismissed without a tick.</p>`;
   if (r.todoId !== null) return `<p class="status">On your wrist as to-do ${r.todoId}. Tick it to forget this fact.</p>`;
   return "";
 }
@@ -94,7 +100,27 @@ export function pickHero(rows: Row[]): Row | null {
   return [...pool].sort((a, b) => URGENCY[b.verdict] - URGENCY[a.verdict] || b.rev - a.rev || b.factId - a.factId)[0] ?? null;
 }
 
-export function hero(rows: Row[]): string {
+// The reminder exactly as Bee holds it, on a watch face. On /demo the Tick button does what a tick on the Watch does:
+// it completes the to-do in the demo Bee, and the same reconcile path as the live loop deletes the fact and reads it back.
+function wrist(r: Row, demo: boolean): string {
+  const open = r.decision === null;
+  const foot = open
+    ? demo
+      ? `<button class="tick" data-tick="${r.todoId}"><span class="box" aria-hidden="true"></span>Tick</button>`
+      : `<p class="w-foot">Tick it on the Watch and this fact leaves Bee.</p>`
+    : `<p class="w-foot done">${r.decision === "forgotten" || r.decision === "already-gone" ? "Done. Fact forgotten." : "Done. Fact kept."}</p>`;
+  return `<aside class="wrist" aria-label="The Bee reminder on your wrist">
+      <p class="step"><b>3</b>Your wrist decides</p>
+      <div class="watch"><div class="face${open ? "" : " closed"}">
+        <p class="w-head"><span>Bee</span><span>Reminder</span></p>
+        <p class="w-text">${esc(todoText(r))}</p>
+        ${foot}
+      </div></div>
+      <p class="w-note">To-do ${r.todoId} in Bee</p>
+    </aside>`;
+}
+
+export function hero(rows: Row[], opts: { demo?: boolean } = {}): string {
   const r = pickHero(rows);
   if (!r) return `<section class="hero" id="hero" hidden></section>`;
   const stamp = STAMP[r.verdict];
@@ -110,18 +136,26 @@ export function hero(rows: Row[]): string {
     </div>`
     : "";
   const why = r.verdict === "supported" ? "" : `<p class="why1">${esc(r.attributionWhy ?? r.reasons[0] ?? "")}</p>`;
+  const onWrist = r.todoId !== null;
+  // with a working Tick on the wrist, the page's own Forget is the secondary path
+  const tone = onWrist && opts.demo ? "ghost" : "primary";
   const act = r.decision !== null
     ? status(r)
     : r.verdict === "supported"
       ? `<button class="btn primary big" data-act="confirm" data-id="${r.factId}">Confirm this fact</button>`
-      : `<button class="btn primary big" data-act="forget" data-id="${r.factId}">Forget this fact</button>`;
-  return `<section class="hero ${stamp.cls}" id="hero" aria-label="Receipt of the day">
+      : `<button class="btn ${tone} big" data-act="forget" data-id="${r.factId}">Forget this fact</button>`;
+  return `<section class="hero ${stamp.cls}${onWrist ? " has-wrist" : ""}" id="hero" aria-label="Receipt of the day">
     <p class="kick"><span>Receipt of the day</span><span>Fact ${r.factId} &middot; written ${esc(time(r.factCreatedAt))}</span></p>
-    <h2>Bee wrote: ${esc(r.factText)}</h2>
+    <div class="hero-grid"><div class="hero-main">
+    <p class="step"><b>1</b>Bee writes a fact</p>
+    <h2>${esc(r.factText)}</h2>
+    <p class="step"><b>2</b>Says Who finds the line</p>
     ${line}
     ${trio}
     <div class="go"><div class="stamp ${stamp.cls}">${stamp.label}</div>${why}</div>
+    ${onWrist ? "" : `<p class="step"><b>3</b>You decide</p>`}
     <div class="act">${act}</div>
+    </div>${onWrist ? wrist(r, opts.demo ?? false) : ""}</div>
   </section>`;
 }
 
@@ -152,7 +186,7 @@ export function renderPage(rows: Row[], opts: { error?: string; rev?: number; ba
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--desk:#1d1d1b;--desk-2:#292927;--paper:#e4e5df;--paper-edge:#d0cdc2;--ink:#1c1b18;--ink-soft:#55524a;--chalk:#e6e4dd;--chalk-soft:#aaa8a0;--ok:#1f5a3f;--warn:#8a3f10;--bad:#922a18;
---font-display:"Big Shoulders Display",Impact,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+--signal:#e8b04a;--font-display:"Big Shoulders Display",Impact,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}
 html,body{margin:0;overflow-x:clip}
 body{background:var(--desk);color:var(--chalk);font:400 14px/1.55 var(--font-mono);padding:40px 16px}
@@ -173,6 +207,28 @@ main{max-width:560px;margin:0 auto}
 .hero .stamp{position:static;display:inline-block;max-width:none;transform:rotate(-2deg)}
 .hero .why1{margin:0;flex:1 1 240px;font-size:14px;color:#161513}
 .hero .act{margin-top:20px}
+.hero .step{display:flex;align-items:center;gap:8px;margin:16px 0 8px;font:600 13px/1.2 var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:#47453f}
+.hero .step b{display:inline-grid;place-items:center;width:22px;height:22px;flex:none;border:1.5px solid #161513;border-radius:50%;color:#161513;font-size:12px;letter-spacing:0}
+.hero .hero-main>.step:first-child{margin-top:16px}
+.hero .hero-main h2{margin-top:0}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px 40px;align-items:start}
+.wrist{min-width:0;margin-top:8px}
+.watch{position:relative;max-width:300px;margin:0 auto;padding:30px 0}
+.watch::before,.watch::after{content:"";position:absolute;left:20%;right:20%;height:40px;background:linear-gradient(90deg,#2a2926,#3a3833 50%,#2a2926)}
+.watch::before{top:0;border-radius:10px 10px 0 0}.watch::after{bottom:0;border-radius:0 0 10px 10px}
+.face{position:relative;z-index:1;background:#0e0e0d;color:var(--chalk);border:6px solid #3a3833;border-radius:40px;padding:20px 20px 18px;box-shadow:0 18px 36px -18px rgba(0,0,0,.55)}
+.w-head{display:flex;justify-content:space-between;margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--signal)}
+.w-text{margin:0;font:500 13px/1.5 var(--font-mono);overflow-wrap:anywhere}
+.w-foot{margin:14px 0 0;font-size:12px;color:var(--chalk-soft)}
+.w-foot.done{color:#8fd1a8;font-weight:600}
+.face.closed .w-text{color:var(--chalk-soft);text-decoration:line-through;text-decoration-color:#6a675f}
+.tick{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;margin-top:16px;padding:10px 16px;border:0;border-radius:999px;background:var(--chalk);color:#0e0e0d;font:600 15px/1 var(--font-mono);cursor:pointer;transition:background-color .12s}
+.tick:hover{background:#fff}.tick:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.tick .box{width:22px;height:22px;flex:none;border:2px solid #0e0e0d;border-radius:50%;position:relative}
+.tick[disabled]{cursor:progress}.tick[disabled] .box{background:#0e0e0d}
+.tick[disabled] .box::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid var(--chalk);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.w-note{margin:4px 0 0;text-align:center;font-size:13px;color:#47453f}
+@media (min-width:1024px){.hero.has-wrist .hero-grid{grid-template-columns:minmax(0,1fr) 300px}.hero.has-wrist .wrist{margin-top:0}}
 .hero .status{margin:0}
 .tag{display:inline-block;border:1px solid var(--chalk-soft);padding:0 8px;margin-right:8px;color:var(--chalk);border-radius:2px}
 .demo-actions{margin:0 0 24px}
@@ -250,16 +306,16 @@ hr{border:0;border-top:1px dashed var(--paper-edge);margin:12px 0}
 @keyframes fresh{from{outline:3px solid var(--warn);outline-offset:4px}to{outline:3px solid transparent;outline-offset:4px}}
 .empty{background:var(--desk-2);padding:24px;border-radius:2px;color:var(--chalk-soft)}
 code{color:var(--chalk)}
-@media (prefers-reduced-motion:reduce){.btn{transition:none}.slip.fresh{animation:none}}
+@media (prefers-reduced-motion:reduce){.btn,.tick{transition:none}.slip.fresh{animation:none}}
 @media (max-width:520px){.attr{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:420px){.tape{grid-template-columns:repeat(2,minmax(0,1fr))}.slip h2{padding-right:0}.stamp{position:static;display:inline-block;max-width:none;margin:0 0 4px;transform:rotate(-3deg)}}
 </style></head>
 <body><main class="${demo ? "demo" : ""}" data-rev="${opts.rev ?? 0}" data-base="${base}">
 <header class="top"><h1>Says Who</h1>
 ${demo
-    ? `<p class="lede"><span class="tag">Demo</span> A sample Bee account with three facts. Each one gets its receipt from the same engine that reads a real account. Try the button on the receipt of the day.</p><div class="demo-actions"><button class="btn ghost-desk" data-reset="1">Reset the demo</button></div>`
+    ? `<p class="lede"><span class="tag">Demo</span> Bee writes a fact, Says Who finds the line, your wrist decides. A sample Bee account, read by the same engine and the same verified write paths as a real one. Tick the reminder on the wrist.</p><div class="demo-actions"><button class="btn ghost-desk" data-reset="1">Reset the demo</button></div>`
     : `<p class="lede">Every fact Bee wrote about you, with the line that caused it.</p><div class="demo-actions"><a class="btn ghost-desk" href="/demo">Open the demo</a></div>`}</header>
-${hero(rows)}
+${hero(rows, { demo })}
 ${demo ? "" : `<div class="rail">
 ${tape(rows)}
 <section class="live" aria-label="Live provenance feed">
@@ -274,6 +330,16 @@ ${body}
 <script>
 const BASE = document.querySelector("main").dataset.base || "";
 document.addEventListener("click", async (e) => {
+  const tk = e.target.closest("button[data-tick]");
+  if (tk) {
+    tk.disabled = true;
+    const res = await fetch(BASE + "/api/todos/" + tk.dataset.tick + "/tick", { method: "POST", headers: { "x-receipts": "1" } });
+    if (!res.ok) { tk.disabled = false; tk.lastChild.textContent = "Failed: " + (await res.text()).slice(0, 60); return; }
+    // the server answers with the decided receipt; show it, then load the next reminder
+    document.getElementById("hero").outerHTML = await res.text();
+    setTimeout(() => location.reload(), 1800);
+    return;
+  }
   const reset = e.target.closest("button[data-reset]");
   if (reset) { reset.disabled = true; await fetch(BASE + "/api/reset", { method: "POST", headers: { "x-receipts": "1" } }); location.reload(); return; }
   const b = e.target.closest("button[data-act]");

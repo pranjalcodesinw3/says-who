@@ -42,7 +42,7 @@ test("review page lists every fact with its receipt, and the buttons write throu
     assert.equal(bee.facts.has(2), false);
     assert.equal((await http(port, "POST", "/api/facts/1/confirm", { "x-receipts": "1" })).status, 200);
     assert.equal(bee.facts.get(1)!.confirmed, true);
-    assert.match((await http(port, "GET", "/")).body, /Forgotten\. Bee no longer holds this fact/);
+    assert.match((await http(port, "GET", "/")).body, /Forgotten \d{1,2}:\d{2} [AP]M, read back from Bee: gone/);
 
     const wrongHost = await http(port, "GET", "/", { host: "evil.example" });
     assert.equal(wrongHost.status, 403);
@@ -117,7 +117,7 @@ test("live feed: a fact that arrives through the changed cursor shows up with it
     const todo = [...bee.todos.values()].find((t) => t.text.includes("[rcpt:20]"))!;
     bee.tick(todo.id, { completed: true });
     await reconcile(d);
-    await live.waitFor((e) => e.some((x) => x.factId === 20 && x.decision === "forgotten" && /Forgotten\. Bee no longer holds this fact/.test(x.slip)));
+    await live.waitFor((e) => e.some((x) => x.factId === 20 && x.decision === "forgotten" && /Forgotten \d{1,2}:\d{2} [AP]M, read back from Bee: gone/.test(x.slip)));
   } finally {
     feed?.close();
     server.close();
@@ -189,7 +189,7 @@ test("receipt of the day: the most doubtful open receipt, with the fact, the exa
   assert.equal(pickHero(rows)!.factId, 2, "likely-tv outranks no-evidence and supported");
   const html = hero(rows);
   assert.match(html, /Receipt of the day/);
-  assert.match(html, /Bee wrote: Dave is a criminal lawyer/);
+  assert.match(html, /<h2>Dave is a criminal lawyer<\/h2>/);
   assert.match(html, /&ldquo;He is a criminal lawyer with a reputation/);
   assert.match(html, /Bee's speaker label<\/span><b>Speaker 2<\/b>/);
   assert.match(html, /Says Who reads it as<\/span><b>About someone else<\/b>/);
@@ -204,4 +204,56 @@ test("receipt of the day: the most doubtful open receipt, with the fact, the exa
   assert.equal(pickHero(d.ledger.all())!.factId, 1);
   assert.match(hero(d.ledger.all()), /data-act="confirm" data-id="1"/, "a supported receipt offers the confirm action");
   assert.equal(hero([]).includes("hidden"), true, "an empty ledger has no hero");
+});
+
+import { NotFound } from "../src/bee.ts";
+import { todoText } from "../src/watch.ts";
+import { buildDemo } from "../src/demo.ts";
+
+const unesc = (s: string) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+test("demo wrist: the hero shows the exact Bee reminder, Tick runs the real reconcile path to a verified forget, and the next reminder takes the hero", async () => {
+  const server = await startServer({ ledger: openLedger(":memory:") } as Deps, 0);
+  const port = (server.address() as { port: number }).port;
+  try {
+    const page = await http(port, "GET", "/demo");
+    const wristHtml = /<aside class="wrist"[\s\S]*?<\/aside>/.exec(page.body)?.[0];
+    assert.ok(wristHtml, "the hero carries the wrist panel");
+    const rows = JSON.parse((await http(port, "GET", "/demo/api/receipts")).body) as import("../src/ledger.ts").Row[];
+    const lawyer = rows.find((r) => r.factId === 2)!;
+    assert.equal(lawyer.todoId, 9001);
+    const text = todoText(lawyer);
+    assert.match(text, /Tick = forget \[rcpt:2\]$/);
+    assert.ok(unesc(wristHtml!).includes(text), "the wrist shows the reminder text exactly as Bee holds it");
+    assert.match(wristHtml!, /data-tick="9001"/);
+
+    assert.equal((await http(port, "POST", "/demo/api/todos/9001/tick")).status, 403, "a tick without the header is refused");
+    assert.equal((await http(port, "POST", "/api/todos/9001/tick", { "x-receipts": "1" })).status, 404, "the live base has no simulated wrist");
+    assert.equal((await http(port, "POST", "/demo/api/todos/4242/tick", { "x-receipts": "1" })).status, 404);
+    const ticked = await http(port, "POST", "/demo/api/todos/9001/tick", { "x-receipts": "1" });
+    assert.equal(ticked.status, 200, ticked.body);
+    assert.match(ticked.body, /Forgotten \d{1,2}:\d{2} [AP]M, read back from Bee/, "the answer is the decided hero with the decision time");
+
+    const after = (JSON.parse((await http(port, "GET", "/demo/api/receipts")).body) as import("../src/ledger.ts").Row[]).find((r) => r.factId === 2)!;
+    assert.equal(after.decision, "forgotten");
+    assert.equal(after.verifiedGone, true);
+    assert.equal(typeof after.decidedAt, "number");
+
+    const next = (await http(port, "GET", "/demo")).body;
+    const heroHtml = /<section class="hero[\s\S]*?<\/section>/.exec(next)![0];
+    assert.match(heroHtml, /data-tick="9002"/, "the pilot fact is the next reminder; the supported oat milk fact never got one");
+    assert.match(heroHtml, /Holds a commercial pilot licence/);
+    assert.match(next, /id="fact-2"[\s\S]*?Forgotten \d{1,2}:\d{2} [AP]M, read back from Bee: gone/);
+  } finally {
+    server.close();
+  }
+});
+
+test("demo Bee: completeTodo plus reconcile deletes the fact from the demo Bee itself", async () => {
+  const d = await buildDemo();
+  d.bee.completeTodo(d.ledger.get(2)!.todoId!);
+  await reconcile(d);
+  await assert.rejects(d.bee.getFact(2), NotFound);
+  assert.equal(d.ledger.get(2)!.decision, "forgotten");
+  assert.ok(await d.bee.getFact(3), "only the ticked fact left");
 });
